@@ -48,12 +48,38 @@ public static class Pentatonic
         _ => degree,
     };
 
-    public static List<ScaleNote> Shape(int tonicPc, ScaleQuality quality, int shape)
+    /// <summary>
+    /// Ordem dos desenhos subindo o braço. Na menor começa no Desenho 1; na maior, no Desenho 2
+    /// (é onde a tônica maior fica na 6ª corda).
+    /// </summary>
+    public static int[] ShapeOrder(ScaleQuality quality) =>
+        quality == ScaleQuality.Minor ? new[] { 1, 2, 3, 4, 5 } : new[] { 2, 3, 4, 5, 1 };
+
+    /// <summary>Os 5 desenhos na ordem do braço, cada um acima do anterior.</summary>
+    public static List<List<ScaleNote>> ShapesUpTheNeck(int tonicPc, ScaleQuality quality)
+    {
+        var shapes = new List<List<ScaleNote>>();
+        foreach (int shape in ShapeOrder(quality))
+            shapes.Add(shapes.Count == 0 ? Shape(tonicPc, quality, shape) : Shape(tonicPc, quality, shape, shapes[^1][0].Fret + 1));
+        return shapes;
+    }
+
+    /// <summary>Notas do desenho, da mais grave para a mais aguda (duas por corda).</summary>
+    /// <param name="minStartFret">Se informado, o desenho é posto na primeira oitava que começa nessa casa ou depois.</param>
+    public static List<ScaleNote> Shape(int tonicPc, ScaleQuality quality, int shape, int minStartFret = -1)
     {
         int minorRootPc = quality == ScaleQuality.Minor ? tonicPc : MathUtil.Mod(tonicPc + 9, 12);
         int rootFret = MathUtil.Mod(minorRootPc - Tuning.OpenPitch(6), 12);
         int startFret = rootFret + MinorIntervals[shape - 1];
-        if (startFret > 14) startFret -= 12;
+        if (minStartFret < 0)
+        {
+            if (startFret > 14) startFret -= 12;
+        }
+        else
+        {
+            while (startFret < minStartFret) startFret += 12;
+            while (startFret - 12 >= minStartFret) startFret -= 12;
+        }
 
         int pitch = Tuning.OpenPitch(6) + startFret;
         var notes = new List<ScaleNote>(12);

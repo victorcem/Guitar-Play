@@ -91,7 +91,7 @@ public sealed class HuntScreen : IScreen
     {
         if (note.Degree == "1" || _found.Contains(note)) return;
         if (echo) _game.Synth.Play(note.Midi);
-        _game.Progress.RecordAnswer(_state.LevelIndex, Target, note.Degree == Target);
+        _game.Progress.RecordAnswer(_state.At, Target, note.Degree == Target);
         if (note.Degree != Target)
         {
             _mistakes++;

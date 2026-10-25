@@ -122,18 +122,14 @@ public sealed class PlayScreen : IScreen
         AddPopup(text, judgement.Grade == HitGrade.Perfect ? Palette.Gold : Palette.Third, note.String);
     }
 
-    ActivityResult BuildResult()
-    {
-        bool unlocksNext = Assist < MenuState.MaxAssist
-            && !MenuState.IsAssistUnlocked(_game.Progress, _state.LevelIndex, Assist + 1);
-        return new ActivityResult($"Pista · Ajuda {Assist}", $"{_level.Title} · {_level.KeyName} · {_bpm} BPM", _judge.Accuracy, new[]
+    ActivityResult BuildResult() =>
+        // O que vai ser liberado é calculado antes de a tela de resultado gravar as estrelas.
+        new($"Pista · Ajuda {Assist}", $"{_level.Title} · {_level.Subtitle} · {_bpm} BPM", _judge.Accuracy, new[]
         {
             ("Pontos", _judge.Score.ToString("N0")),
             ("Maior combo", _judge.MaxCombo.ToString()),
             ("Perfeito / Bom / Errou", $"{_judge.Perfects} / {_judge.Goods} / {_judge.Misses}"),
-        }, _state.ProgressKey,
-            unlocksNext ? $"Ajuda {Assist + 1} liberada: {MenuState.AssistName(Assist + 1)}" : null);
-    }
+        }, _state.ProgressKey, Unlocks.NewlyUnlocked(_game.Progress, _state.At, Assist));
 
     void AddPopup(string text, Color color, int guitarString) =>
         _popups.Add(new Popup { Text = text, Color = color, String = guitarString });
@@ -272,7 +268,11 @@ public sealed class PlayScreen : IScreen
         float progress = (float)Math.Clamp(_time / _endTime, 0, 1);
         DrawBar(x, 300, 440, progress);
 
-        string[] labels = { "Tônica (1)", "Terça (b3)", "Quinta (5)", "Outras (4, b7)" };
+        // Legenda montada com os graus que aparecem no nível (menor, maior ou os dois).
+        var degrees = _level.Notes.Select(n => n.Degree).Distinct().ToList();
+        var thirds = degrees.Where(d => d is "b3" or "3");
+        var others = degrees.Where(d => d is not ("1" or "b3" or "3" or "5")).OrderBy(d => d.TrimStart('b'));
+        string[] labels = { "Tônica (1)", $"Terça ({string.Join(" / ", thirds)})", "Quinta (5)", $"Outras ({string.Join(", ", others)})" };
         Color[] colors = { Palette.Root, Palette.Third, Palette.Fifth, Palette.Other };
         int legendLines = Assist <= 2 ? labels.Length : Assist == 3 ? 1 : 0;
         if (Assist >= 3)

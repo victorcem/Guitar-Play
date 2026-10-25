@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using GuitarPlay.Music;
 
 namespace GuitarPlay.Gameplay;
 
@@ -33,7 +34,7 @@ public sealed class Progress
 
     public void Save() => JsonStore.Save(FileName, this);
 
-    public static string StarsKey(int levelIndex, string activity, int assist = 0) => $"{levelIndex}:{activity}:{assist}";
+    public static string StarsKey(LevelRef at, string activity, int assist = 0) => $"{at.World}.{at.Level}:{activity}:{assist}";
 
     public int Stars(string key) => BestStars.GetValueOrDefault(key);
 
@@ -44,13 +45,13 @@ public sealed class Progress
         Save();
     }
 
-    static string ReviewKey(int levelIndex, string degree) => $"{levelIndex}:{degree}";
+    static string ReviewKey(LevelRef at, string degree) => $"{at.World}.{at.Level}:{degree}";
 
-    public ReviewItem? Review(int levelIndex, string degree) => Reviews.GetValueOrDefault(ReviewKey(levelIndex, degree));
+    public ReviewItem? Review(LevelRef at, string degree) => Reviews.GetValueOrDefault(ReviewKey(at, degree));
 
-    public void RecordAnswer(int levelIndex, string degree, bool correct)
+    public void RecordAnswer(LevelRef at, string degree, bool correct)
     {
-        string key = ReviewKey(levelIndex, degree);
+        string key = ReviewKey(at, degree);
         var item = Reviews.GetValueOrDefault(key) ?? new ReviewItem();
         item.Seen++;
         if (correct)
@@ -64,5 +65,5 @@ public sealed class Progress
         Save();
     }
 
-    public bool IsDue(int levelIndex, string degree) => Review(levelIndex, degree) is { } r && r.Due <= DateTime.Today;
+    public bool IsDue(LevelRef at, string degree) => Review(at, degree) is { } r && r.Due <= DateTime.Today;
 }
