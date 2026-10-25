@@ -90,9 +90,15 @@ public sealed class PlayScreen : IScreen
 
         for (int s = 1; s <= 6; s++)
             if (_game.Pressed(NumberKeys[s - 1]) || _game.Pressed(RowKeys[s - 1]))
-                OnPlayed(s, new PlayedNote(s, null));
+                OnPlayed(new PlayedNote(s, null), _time, fromGuitar: false);
 
-        foreach (var miss in _judge.SweepMisses(_time))
+        // A guitarra chega atrasada (captura + detecção + reação): a calibração mede esse atraso.
+        double latency = _game.Settings.LatencySeconds;
+        foreach (var (midi, age) in _game.AudioNotes)
+            OnPlayed(new PlayedNote(null, midi), _time - age - latency, fromGuitar: true);
+
+        double sweepAt = _game.Input is null ? _time : _time - latency - 0.05;
+        foreach (var miss in _judge.SweepMisses(sweepAt))
             AddPopup("Errou", Palette.Miss, _level.Notes[miss.NoteIndex].String);
 
         for (int i = 0; i < _laneFlash.Length; i++) _laneFlash[i] = Math.Max(0, _laneFlash[i] - dt * 6);
@@ -102,15 +108,18 @@ public sealed class PlayScreen : IScreen
         if (_time >= _endTime) _game.ShowScreen(new ResultScreen(_game, BuildResult(), _state));
     }
 
-    void OnPlayed(int guitarString, PlayedNote played)
+    void OnPlayed(PlayedNote played, double playedAt, bool fromGuitar)
     {
-        _laneFlash[guitarString - 1] = 1;
-        var judgement = _judge.Hit(played, _time);
+        if (played.String is { } pressed) _laneFlash[pressed - 1] = 1;
+        var judgement = _judge.Hit(played, playedAt, penalizeStray: !fromGuitar);
         if (judgement is null) return;
+
+        var note = _level.Notes[judgement.NoteIndex];
+        _laneFlash[note.String - 1] = 1;
         string text = judgement.Grade == HitGrade.Perfect ? "Perfeito!" : "Bom";
         // Sem o rótulo na nota, o grau aparece depois do acerto para reforçar a memória.
-        if (Assist >= 2) text += $" · {_level.Notes[judgement.NoteIndex].Degree}";
-        AddPopup(text, judgement.Grade == HitGrade.Perfect ? Palette.Gold : Palette.Third, guitarString);
+        if (Assist >= 2) text += $" · {note.Degree}";
+        AddPopup(text, judgement.Grade == HitGrade.Perfect ? Palette.Gold : Palette.Third, note.String);
     }
 
     ActivityResult BuildResult()
@@ -274,7 +283,8 @@ public sealed class PlayScreen : IScreen
             _game.Circle(new Vector2(x + 9, y + 11), 8, colors[i]);
             _game.Text(labels[i], new Vector2(x + 26, y), 17, Palette.TextDim);
         }
-        _game.Text("Esc: voltar ao menu", new Vector2(x, 470), 14, Palette.TextFaint);
+        string input = _game.Input is null ? "teclado" : "guitarra";
+        _game.Text($"Entrada: {input}   ·   Esc: voltar ao menu", new Vector2(x, 470), 14, Palette.TextFaint);
     }
 
     void DrawBar(float x, float y, float width, float fraction)

@@ -31,13 +31,21 @@ O progresso (estrelas e revisões) fica em `%AppData%\GuitarPlay\progress.json`.
 
 | Tela | Teclas |
 |---|---|
-| Menu | ↑ ↓ desenho · ← → atividade · + − BPM da pista · Tab nível de ajuda · T treino do dia · Enter começa · Esc sai |
+| Menu | ↑ ↓ desenho · ← → atividade · + − BPM da pista · Tab nível de ajuda · T treino do dia · A áudio · Enter começa · Esc sai |
+| Áudio | ↑ ↓ dispositivo · Enter usar · C calibrar latência · + − sensibilidade · Esc voltar |
 | Treino do dia | 1 a 4 ou clique · R ouvir de novo · Esc menu |
 | Constelações | → próximo · ← voltar · R ouvir de novo · Esc menu |
 | Caça ao intervalo | clique nas notas · Esc menu |
 | Qual é essa nota? | 1 a 4 ou clique · R ouvir de novo · Esc menu |
 | Pista | 1 a 6 (número da corda) ou A S D F G H (6ª corda à esquerda) · Esc volta |
 | Resultado | Enter joga de novo · Esc volta ao menu |
+
+## Tocando com a guitarra
+
+1. Ligue a Pocket Master (ou a interface) no USB e escolha um timbre **limpo** (sem distorção, delay ou reverb).
+2. No menu, aperte **A**, escolha o dispositivo e aperte **Enter**. O afinador e o medidor de volume devem reagir.
+3. Se as notas não aparecerem em "Notas detectadas", aumente a sensibilidade (**+**) até a barra de volume passar da linha dourada.
+4. Aperte **C** e toque uma corda solta junto com os 5 cliques para calibrar a latência.
 
 ## Pontuação
 
@@ -48,7 +56,8 @@ O progresso (estrelas e revisões) fica em `%AppData%\GuitarPlay\progress.json`.
 ## Etapas
 
 1. **Pista** (feito): pista em perspectiva, metrônomo, entrada pelo teclado, Mundo 1 (5 desenhos de Sol menor).
-2. **Ouvir a guitarra**: entrada pela Pocket Master / interface / microfone, afinador, calibração de latência (5 batidas).
+2. **Ouvir a guitarra** (feito): entrada pela Pocket Master / interface / microfone (WASAPI), detecção de nota (YIN),
+   afinador e calibração de latência (5 batidas, mediana). Vale na Pista, na Caça e no "ache a nota" do Treino.
 3. **Níveis**: mundos do livro, desbloqueio por estrelas, progresso salvo.
 
 O PDF do ebook não faz parte do repositório (direitos autorais).

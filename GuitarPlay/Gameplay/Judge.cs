@@ -10,8 +10,10 @@ public enum HitGrade { Perfect, Good, Miss }
 /// </summary>
 public readonly record struct PlayedNote(int? String, int? Midi)
 {
+    // O detector de altura às vezes erra a oitava; por isso uma oitava acima ou abaixo também vale.
     public bool Matches(ChartNote note) =>
-        (String is null || String == note.String) && (Midi is null || Midi == note.Midi);
+        (String is null || String == note.String)
+        && (Midi is null || Midi == note.Midi || Math.Abs(Midi.Value - note.Midi) == 12);
 }
 
 public sealed record Judgement(int NoteIndex, HitGrade Grade);
@@ -55,8 +57,10 @@ public sealed class Judge
 
     public HitGrade? GradeOf(int index) => _grades[index];
 
-    /// <summary>Avalia uma nota tocada. Devolve null se não havia nota para ela (quebra o combo).</summary>
-    public Judgement? Hit(PlayedNote played, double now)
+    /// <summary>Avalia uma nota tocada. Devolve null se não havia nota para ela.</summary>
+    /// <param name="penalizeStray">Nota sem alvo quebra o combo (no teclado sim; na guitarra não,
+    /// porque cordas soando e ruídos podem gerar notas extras).</param>
+    public Judgement? Hit(PlayedNote played, double now, bool penalizeStray = true)
     {
         int best = -1;
         double bestOffset = double.MaxValue;
@@ -73,7 +77,7 @@ public sealed class Judge
 
         if (best < 0)
         {
-            Combo = 0;
+            if (penalizeStray) Combo = 0;
             return null;
         }
 

@@ -62,8 +62,20 @@ public sealed class HuntScreen : IScreen
         }
 
         _time += dt;
-        if (_time >= TimeLimit) Finish();
-        else if (_game.Clicked && NoteAt(_game.MousePosition) is { } note) OnClick(note);
+        if (_time >= TimeLimit)
+        {
+            Finish();
+            return;
+        }
+        if (_game.Clicked && NoteAt(_game.MousePosition) is { } note) OnClick(note);
+
+        // Na guitarra: cada altura aparece uma única vez no desenho, então a nota tocada identifica a posição.
+        foreach (var (midi, _) in _game.AudioNotes)
+        {
+            if (Finished) break;
+            foreach (var shapeNote in _shape)
+                if (shapeNote.Midi == midi) OnClick(shapeNote, echo: false);
+        }
     }
 
     ScaleNote? NoteAt(Vector2 point)
@@ -74,10 +86,11 @@ public sealed class HuntScreen : IScreen
         return null;
     }
 
-    void OnClick(ScaleNote note)
+    /// <param name="echo">Toca o som da nota (no clique); a guitarra já soa sozinha.</param>
+    void OnClick(ScaleNote note, bool echo = true)
     {
         if (note.Degree == "1" || _found.Contains(note)) return;
-        _game.Synth.Play(note.Midi);
+        if (echo) _game.Synth.Play(note.Midi);
         _game.Progress.RecordAnswer(_state.LevelIndex, Target, note.Degree == Target);
         if (note.Degree != Target)
         {
@@ -137,7 +150,8 @@ public sealed class HuntScreen : IScreen
         _game.Text($"Erros: {_mistakes}", new Vector2(1220, 240), 20, _mistakes > 0 ? Palette.Miss : Palette.TextFaint, align: Align.Right);
 
         DrawBoard();
-        Chrome.Footer(_game, "Clique nas notas com o mouse   ·   Esc menu");
+        Chrome.Footer(_game, _game.Input is null ? "Clique nas notas com o mouse   ·   Esc menu"
+            : "Toque as notas na guitarra ou clique com o mouse   ·   Esc menu");
         _game.Batch.End();
     }
 

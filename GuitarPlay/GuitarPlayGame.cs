@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using FontStashSharp;
 using GuitarPlay.Audio;
 using GuitarPlay.Gameplay;
@@ -58,6 +59,20 @@ public sealed class GuitarPlayGame : Game
     public Metronome Metronome { get; private set; } = null!;
     public NoteSynth Synth { get; private set; } = null!;
     public Progress Progress { get; } = Progress.Load();
+    public Settings Settings { get; } = Settings.Load();
+
+    /// <summary>Entrada de áudio ativa (guitarra), ou null quando só o teclado é usado.</summary>
+    public AudioInput? Input { get; private set; }
+    public string? InputError { get; private set; }
+
+    /// <summary>Notas tocadas na guitarra neste quadro, com a idade (s) de cada uma.</summary>
+    public IReadOnlyList<(int Midi, double Age)> AudioNotes => _audioNotes;
+
+    /// <summary>Relógio comum ao jogo e à captura de áudio (segundos).</summary>
+    public double Now => _clock.Elapsed.TotalSeconds;
+
+    readonly Stopwatch _clock = Stopwatch.StartNew();
+    readonly List<(int Midi, double Age)> _audioNotes = new();
 
     /// <summary>Posição do mouse na tela virtual de 1280x720.</summary>
     public Vector2 MousePosition { get; private set; }
@@ -76,6 +91,7 @@ public sealed class GuitarPlayGame : Game
         Primitives = new Primitives(GraphicsDevice, Width, Height);
         Metronome = new Metronome();
         Synth = new NoteSynth();
+        if (Settings.InputDeviceId is not null) UseInput(Settings.InputDeviceId);
         Fonts = LoadFonts("segoeui.ttf", "seguisym.ttf", "arial.ttf");
         BoldFonts = LoadFonts("segoeuib.ttf", "seguisym.ttf", "arialbd.ttf");
         CircleTexture = MakeDisc(innerRadius: 0);
@@ -84,6 +100,29 @@ public sealed class GuitarPlayGame : Game
     }
 
     public void ShowScreen(IScreen screen) => _screen = screen;
+
+    /// <summary>Troca o dispositivo de entrada (null = só teclado) e salva a escolha.</summary>
+    public void UseInput(string? deviceId)
+    {
+        Input?.Dispose();
+        Input = null;
+        InputError = null;
+        if (deviceId is not null)
+        {
+            try
+            {
+                Input = new AudioInput(deviceId, Settings, _clock);
+            }
+            catch (Exception e)
+            {
+                // Dispositivo desconectado ou ocupado: o jogo continua no teclado.
+                InputError = e.Message;
+            }
+        }
+        if (Settings.InputDeviceId != deviceId) Settings.Calibrated = false;
+        Settings.InputDeviceId = deviceId;
+        Settings.Save();
+    }
 
     /// <summary>Tecla apertada neste quadro (não conta se já estava segurada).</summary>
     public bool Pressed(Keys key) => _pressed.Contains(key);
@@ -105,6 +144,9 @@ public sealed class GuitarPlayGame : Game
         Clicked = IsActive && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
         _previousMouse = mouse;
         Synth.Update(gameTime.ElapsedGameTime.TotalSeconds);
+        _audioNotes.Clear();
+        if (Input is not null)
+            while (Input.Events.TryDequeue(out var note)) _audioNotes.Add((note.Midi, Now - note.Timestamp));
 
         _screen.Update(gameTime);
         base.Update(gameTime);
@@ -139,6 +181,7 @@ public sealed class GuitarPlayGame : Game
     {
         Metronome.Dispose();
         Synth.Dispose();
+        Input?.Dispose();
         base.UnloadContent();
     }
 
