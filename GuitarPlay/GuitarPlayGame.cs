@@ -1,5 +1,6 @@
 using FontStashSharp;
 using GuitarPlay.Audio;
+using GuitarPlay.Gameplay;
 using GuitarPlay.Rendering;
 using GuitarPlay.Screens;
 using Microsoft.Xna.Framework;
@@ -56,6 +57,7 @@ public sealed class GuitarPlayGame : Game
     public Primitives Primitives { get; private set; } = null!;
     public Metronome Metronome { get; private set; } = null!;
     public NoteSynth Synth { get; private set; } = null!;
+    public Progress Progress { get; } = Progress.Load();
 
     /// <summary>Posição do mouse na tela virtual de 1280x720.</summary>
     public Vector2 MousePosition { get; private set; }

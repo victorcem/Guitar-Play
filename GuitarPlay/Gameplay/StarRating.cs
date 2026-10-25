@@ -9,7 +9,15 @@ public static class StarRating
 }
 
 /// <summary>O que a tela de resultado mostra ao fim de qualquer atividade.</summary>
-public sealed record ActivityResult(string Title, string Subtitle, double Accuracy, IReadOnlyList<(string Label, string Value)> Stats)
+/// <param name="ProgressKey">Onde guardar as melhores estrelas (null = não guarda).</param>
+/// <param name="UnlockMessage">Mostrado quando o resultado libera algo novo.</param>
+public sealed record ActivityResult(
+    string Title,
+    string Subtitle,
+    double Accuracy,
+    IReadOnlyList<(string Label, string Value)> Stats,
+    string? ProgressKey = null,
+    string? UnlockMessage = null)
 {
     public int Stars => StarRating.For(Accuracy);
 }

@@ -14,18 +14,12 @@ namespace GuitarPlay.Screens;
 public sealed class NameItScreen : IScreen
 {
     const int Questions = 12;
-    const int ButtonWidth = 270, ButtonHeight = 76, ButtonGap = 20, ButtonsY = 590;
-    static readonly Keys[][] AnswerKeys =
-    {
-        new[] { Keys.D1, Keys.NumPad1 }, new[] { Keys.D2, Keys.NumPad2 },
-        new[] { Keys.D3, Keys.NumPad3 }, new[] { Keys.D4, Keys.NumPad4 },
-    };
 
     readonly GuitarPlayGame _game;
     readonly MenuState _state;
     readonly Level _level;
     readonly IReadOnlyList<ScaleNote> _shape;
-    readonly string[] _options;
+    readonly AnswerButtons _buttons;
     readonly List<ScaleNote> _queue;
     readonly List<double> _answerTimes = new();
     readonly FretboardView _board = new(new Rectangle(40, 230, 1200, 300));
@@ -44,7 +38,7 @@ public sealed class NameItScreen : IScreen
         _state = state;
         _level = state.Level;
         _shape = _level.ShapeNotes;
-        _options = Pentatonic.Degrees(_level.Quality).Where(d => d != "1").ToArray();
+        _buttons = new AnswerButtons(Pentatonic.Degrees(_level.Quality).Where(d => d != "1"));
         _queue = BuildQueue(_shape.Where(n => n.Degree != "1").ToList());
         Ask();
     }
@@ -96,18 +90,14 @@ public sealed class NameItScreen : IScreen
         }
 
         _questionTime += dt;
-        for (int i = 0; i < _options.Length; i++)
-            if (AnswerKeys[i].Any(_game.Pressed) || (_game.Clicked && ButtonRect(i).Contains(_game.MousePosition)))
-            {
-                Answer(_options[i]);
-                break;
-            }
+        if (_buttons.Poll(_game) is { } answer) Answer(answer);
     }
 
     void Answer(string degree)
     {
         _answer = degree;
         _feedbackTime = 0;
+        _game.Progress.RecordAnswer(_state.LevelIndex, Current.Degree, WasRight);
         if (WasRight)
         {
             _correct++;
@@ -126,14 +116,7 @@ public sealed class NameItScreen : IScreen
             ("Acertos", $"{_correct} de {Questions}"),
             ("Tempo médio (acertos)", average),
             ("Maior sequência", _bestStreak.ToString()),
-        });
-    }
-
-    static Rectangle ButtonRect(int i)
-    {
-        const int total = 4 * ButtonWidth + 3 * ButtonGap;
-        int x = (GuitarPlayGame.Width - total) / 2 + i * (ButtonWidth + ButtonGap);
-        return new Rectangle(x, ButtonsY, ButtonWidth, ButtonHeight);
+        }, _state.ProgressKey);
     }
 
     public void Draw(GameTime gameTime)
@@ -142,16 +125,7 @@ public sealed class NameItScreen : IScreen
         _game.DrawBackground();
         Chrome.Bar(p, 60, 104, 1160, _index / (float)Questions, Palette.Gold);
         _board.DrawBase(p);
-        for (int i = 0; i < _options.Length; i++)
-        {
-            var rect = ButtonRect(i);
-            var color = Palette.Panel;
-            if (_answer is not null && _options[i] == Current.Degree) color = Palette.Third * 0.8f;
-            else if (_answer == _options[i]) color = Palette.Miss * 0.8f;
-            else if (_answer is null && rect.Contains(_game.MousePosition)) color = Palette.Panel * 1.5f;
-            p.Rect(rect.X, rect.Y, rect.Width, rect.Height, color);
-            p.Rect(rect.X, rect.Y, 5, rect.Height, Palette.ForDegree(_options[i]));
-        }
+        _buttons.DrawBase(_game, _answer, Current.Degree);
         p.Flush();
 
         _game.Batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
@@ -173,16 +147,7 @@ public sealed class NameItScreen : IScreen
         }
 
         DrawBoard();
-        for (int i = 0; i < _options.Length; i++)
-        {
-            var rect = ButtonRect(i);
-            // Botão pintado de verde/vermelho na resposta: texto branco para manter o contraste.
-            bool painted = _answer is not null && (_options[i] == Current.Degree || _options[i] == _answer);
-            _game.Text((i + 1).ToString(), new Vector2(rect.X + 22, rect.Y + rect.Height / 2f), 20,
-                painted ? Color.White : Palette.TextFaint, bold: true, middle: true);
-            _game.Text(_options[i], new Vector2(rect.X + 52, rect.Y + 8), 32, painted ? Color.White : Palette.ForDegree(_options[i]), bold: true);
-            _game.Text(Pentatonic.DegreeName(_options[i]), new Vector2(rect.X + 52, rect.Y + 48), 16, painted ? Color.White : Palette.TextDim);
-        }
+        _buttons.DrawText(_game, _answer, Current.Degree);
         Chrome.Footer(_game, "Teclas 1 a 4 ou clique   ·   R ouvir de novo   ·   Esc menu");
         _game.Batch.End();
     }
