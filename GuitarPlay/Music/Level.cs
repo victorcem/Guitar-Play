@@ -10,6 +10,7 @@ public sealed record ChartNote(double Beat, int String, int Fret, int Midi, stri
 
 /// <param name="ShapeNotes">Notas mostradas no mini braço (o desenho, ou a união dos desenhos usados).</param>
 /// <param name="IsShape">Nível de um desenho só: aceita também Constelações, Caça e Qual é essa nota?.</param>
+/// <param name="Extras">Graus acrescentados à pentatônica (escala CAGED, modos), mostrados em lilás como no livro.</param>
 public sealed record Level(
     string Title,
     string Subtitle,
@@ -17,7 +18,8 @@ public sealed record Level(
     ScaleQuality Quality,
     IReadOnlyList<ScaleNote> ShapeNotes,
     IReadOnlyList<ChartNote> Notes,
-    bool IsShape = false)
+    bool IsShape = false,
+    IReadOnlyList<string>? Extras = null)
 {
     public string KeyName => $"{NoteNames.Of(TonicPc)} {(Quality == ScaleQuality.Minor ? "menor" : "maior")}";
 }
@@ -47,6 +49,9 @@ public static class LevelFactory
         new World("Bends", "Capítulo 6", Bends()),
         new World("Pentatônicas mistas", "Capítulo 7", MixedPentatonics()),
         new World("Blue note", "Capítulo 8", BlueNote()),
+        new World("Sequências não-lineares", "Capítulo 9", Sequences()),
+        new World("Pentatônicas e CAGED", "Capítulo 10", Caged()),
+        new World("Modos", "Capítulo 11", Modes()),
     };
 
     public static Level Get(LevelRef at) => Worlds[at.World].Levels[at.Level];
@@ -266,6 +271,170 @@ public static class LevelFactory
             }
         levels.Add(new Level("Bends na blue note", "4 → #4 e #4 → 5 · todos os desenhos", Sol, ScaleQuality.Minor,
             Distinct(shapes.SelectMany(s => s)), Chart(bends)));
+        return levels;
+    }
+
+    /// <summary>Padrões do Capítulo 9: deslocamentos aplicados a partir de cada nota da escala.</summary>
+    static readonly (string Name, int[] Offsets)[] Patterns =
+    {
+        ("Grupos de 3", new[] { 0, 1, 2 }),            // sobe três, recomeça uma acima: muda de direção
+        ("Grupos de 4", new[] { 0, 1, 2, 3 }),
+        ("Saltos de terça", new[] { 0, 2 }),           // pula uma nota da escala
+        ("Repetições", new[] { 0, 0, 1, 2 }),          // repete a nota antes de seguir
+        ("Combinação", new[] { 0, 2, 2, 1 }),          // salto, repetição e volta juntos
+    };
+
+    /// <summary>Aplica um padrão subindo a sequência de notas e depois descendo (espelhado).</summary>
+    static List<ScaleNote> ApplyPattern(IReadOnlyList<ScaleNote> notes, int[] offsets, bool descend = true)
+    {
+        var path = new List<ScaleNote>();
+        var lines = descend ? new[] { notes, notes.Reverse().ToList() } : new[] { notes };
+        foreach (var line in lines)
+            for (int start = 0; start + offsets.Max() < line.Count; start++)
+                path.AddRange(offsets.Select(o => line[start + o]));
+        return path;
+    }
+
+    // Capítulo 9: sequências não-lineares no desenho e depois nos exercícios dos capítulos anteriores.
+    static List<Level> Sequences()
+    {
+        var minor = Shapes(ScaleQuality.Minor);
+        var levels = Patterns.Select(p =>
+            new Level(p.Name, "Sol menor · Desenho 1", Sol, ScaleQuality.Minor, minor[0], Chart(ApplyPattern(minor[0], p.Offsets)))).ToList();
+
+        levels.Add(new Level("Grupos de 3", "Sol menor · subindo todos os desenhos", Sol, ScaleQuality.Minor,
+            Distinct(minor.SelectMany(s => s)), Chart(minor.SelectMany(s => ApplyPattern(s, Patterns[0].Offsets, descend: false)))));
+        var major = Shapes(ScaleQuality.Major);
+        levels.Add(new Level("Saltos de terça", "Sol maior · subindo todos os desenhos", Sol, ScaleQuality.Major,
+            Distinct(major.SelectMany(s => s)), Chart(major.SelectMany(s => ApplyPattern(s, Patterns[2].Offsets, descend: false)))));
+
+        var pair = minor.SelectMany(s => s.Where(n => n.String <= 2)).ToList();
+        levels.Add(new Level("Grupos de 3", "cordas 2 e 1 · sobe e desce o braço", Sol, ScaleQuality.Minor,
+            Distinct(pair), Chart(ApplyPattern(pair, Patterns[0].Offsets))));
+
+        var blues = BluesShapes()[0];
+        levels.Add(new Level("Combinação", "blue note · Desenho 1", Sol, ScaleQuality.Minor, blues, Chart(ApplyPattern(blues, Patterns[4].Offsets))));
+        var mixed = Pentatonic.AddNextTo(minor[0], Sol, "b3", 1);
+        levels.Add(new Level("Combinação", "mista (menor + 3) · Desenho 1", Sol, ScaleQuality.Minor, mixed, Chart(ApplyPattern(mixed, Patterns[4].Offsets))));
+
+        // Com bend: saltos subindo o Desenho 1 e, no topo, bend de 1 tom (Sib → Dó) antes de descer.
+        var skips = ApplyPattern(minor[0], Patterns[2].Offsets);
+        int top = skips.FindIndex(n => n.Midi == minor[0][^1].Midi);
+        var steps = skips.Select((n, i) => new Step(n, i == top ? BendOn(minor[0], 1).Semitones : 0));
+        levels.Add(new Level("Saltos com bend", "Sol menor · Desenho 1", Sol, ScaleQuality.Minor, minor[0], Chart(steps)));
+        return levels;
+    }
+
+    /// <summary>Formato de acorde CAGED: corda da tônica e casas relativas a ela, da 6ª à 1ª corda (null = não toca).</summary>
+    sealed record ChordForm(string Name, int RootString, int?[] Offsets);
+
+    // Na ordem em que aparecem subindo o braço: E → D → C → A → G (o mesmo ciclo dos 5 desenhos).
+    static readonly ChordForm[] MajorForms =
+    {
+        new("E", 6, new int?[] { 0, 2, 2, 1, 0, 0 }),
+        new("D", 4, new int?[] { null, null, 0, 2, 3, 2 }),
+        new("C", 5, new int?[] { null, 0, -1, -3, -2, -3 }),
+        new("A", 5, new int?[] { null, 0, 2, 2, 2, 0 }),
+        new("G", 6, new int?[] { 0, -1, -3, -3, -3, 0 }),
+    };
+
+    static readonly ChordForm[] MinorForms =
+    {
+        new("Em", 6, new int?[] { 0, 2, 2, 0, 0, 0 }),
+        new("Dm", 4, new int?[] { null, null, 0, 2, 3, 1 }),
+        new("Cm", 5, new int?[] { null, 0, -2, -3, -2, null }),
+        new("Am", 5, new int?[] { null, 0, 2, 2, 1, 0 }),
+        new("Gm", 6, new int?[] { 0, -2, -3, -3, 0, 0 }),
+    };
+
+    /// <summary>Notas do acorde no formato, posto na oitava que cai dentro da região do desenho.</summary>
+    static List<ScaleNote> ChordIn(ChordForm form, IReadOnlyList<ScaleNote> shape)
+    {
+        int minFret = shape.Min(n => n.Fret), maxFret = shape.Max(n => n.Fret);
+        int baseFret = MathUtil.Mod(Sol - Tuning.OpenPitch(form.RootString), 12);
+        List<ScaleNote> Place(int rootFret) => form.Offsets
+            .Select((offset, i) => (offset, s: 6 - i))
+            .Where(x => x.offset is not null)
+            .Select(x =>
+            {
+                int fret = rootFret + x.offset!.Value;
+                int midi = Tuning.OpenPitch(x.s) + fret;
+                return new ScaleNote(x.s, fret, midi, Pentatonic.DegreeOf(midi, Sol));
+            }).ToList();
+
+        return new[] { baseFret, baseFret + 12 }
+            .Select(Place)
+            .Where(chord => chord.All(n => n.Fret >= 0))
+            .OrderBy(chord => chord.Sum(n => Math.Max(0, minFret - 1 - n.Fret) + Math.Max(0, n.Fret - maxFret - 1)))
+            .First();
+    }
+
+    /// <summary>Intervalos que completam a escala: maior + 4 e 7 (Jônico); menor + 2 e b6 (Eólio).</summary>
+    static int[] DiatonicExtras(ScaleQuality quality) => quality == ScaleQuality.Major ? new[] { 5, 11 } : new[] { 2, 8 };
+
+    static string[] DegreeNames(int[] intervals) => intervals.Select(i => Pentatonic.DegreeOf(Sol + i, Sol)).ToArray();
+
+    // Capítulo 10: cada desenho encaixado no seu formato de acorde CAGED, e a escala CAGED (pentatônica + 2 notas).
+    static List<Level> Caged()
+    {
+        var levels = new List<Level>();
+        foreach (var quality in new[] { ScaleQuality.Major, ScaleQuality.Minor })
+        {
+            var forms = quality == ScaleQuality.Major ? MajorForms : MinorForms;
+            var extras = DiatonicExtras(quality);
+            foreach (var ((shape, number), form) in Shapes(quality).Zip(Pentatonic.ShapeOrder(quality)).Zip(forms))
+            {
+                // Passo 3: o acorde (arpejado, uma nota de cada vez) e a pentatônica ao redor dele.
+                var chord = ChordIn(form, shape);
+                var withChord = UpAndDown(chord).Concat(UpAndDown(shape));
+                levels.Add(new Level($"Formato {form.Name}", $"{KeyName(quality)} · acorde + Desenho {number}", Sol, quality,
+                    Distinct(shape.Concat(chord)), Chart(withChord)));
+
+                // Passo 4: a pentatônica e, em seguida, a escala CAGED do mesmo desenho (notas novas em lilás).
+                var scale = Pentatonic.AddDegrees(shape, Sol, extras);
+                levels.Add(new Level($"Formato {form.Name}", $"{KeyName(quality)} · escala CAGED (Desenho {number})", Sol, quality,
+                    scale, Chart(UpAndDown(shape).Concat(UpAndDown(scale))), Extras: DegreeNames(extras)));
+            }
+        }
+        return levels;
+    }
+
+    // Capítulo 11: os 4 modos mais usados no rock e no blues, como pentatônica + 2 notas.
+    static List<Level> Modes()
+    {
+        var modes = new (string Name, ScaleQuality Quality, int[] Extras)[]
+        {
+            ("Eólio", ScaleQuality.Minor, new[] { 2, 8 }),
+            ("Dórico", ScaleQuality.Minor, new[] { 2, 9 }),
+            ("Jônico", ScaleQuality.Major, new[] { 5, 11 }),
+            ("Mixolídio", ScaleQuality.Major, new[] { 5, 10 }),
+        };
+        var levels = new List<Level>();
+        foreach (var (name, quality, extras) in modes)
+        {
+            var names = DegreeNames(extras);
+            string label = $"{name} · + {string.Join(" e ", names)}";
+            var pure = Shapes(quality);
+            var shapes = pure.Select(s => Pentatonic.AddDegrees(s, Sol, extras)).ToList();
+            var order = Pentatonic.ShapeOrder(quality);
+
+            // Passos 3 a 5: pentatônica pura → modo completo → recortes de oitava do modo.
+            for (int i = 0; i < shapes.Count; i++)
+            {
+                var path = UpAndDown(pure[i]).Concat(UpAndDown(shapes[i])).Concat(OctaveCut(shapes[i], "1"));
+                levels.Add(new Level($"{name} · Desenho {order[i]}", label, Sol, quality, shapes[i], Chart(path), Extras: names));
+            }
+
+            // Passo 7: transição entre o primeiro par de desenhos, troca em cada corda.
+            var transition = Enumerable.Range(0, 6).Select(k => 6 - k).SelectMany(s => TransitionUp(shapes[0], shapes[1], s));
+            levels.Add(new Level($"{name} · Desenhos {order[0]} → {order[1]}", $"{label} · grave → agudo", Sol, quality,
+                Distinct(shapes[0].Concat(shapes[1])), Chart(transition), Extras: names));
+
+            // Passo 8: horizontal em um par de cordas, atravessando os 5 desenhos.
+            var pairPath = shapes.SelectMany(s => s.Where(n => n.String <= 2)).ToList();
+            levels.Add(new Level($"{name} · cordas 2 e 1", $"{label} · sobe e desce o braço", Sol, quality,
+                Distinct(pairPath), Chart(UpAndDown(pairPath)), Extras: names));
+        }
         return levels;
     }
 }

@@ -23,6 +23,9 @@ dotnet run --project GuitarPlay
 | 6 · Bends | 6 | Por desenho: bends isolados (nota-alvo presa, depois o bend até ela) e bends na escala (sobe o desenho e faz o bend na corda da vez) |
 | 7 · Pentatônicas mistas | 7 | Versão 1 (menor + 3) e versão 2 (maior + b3) em todos os desenhos, e as duas lado a lado |
 | 8 · Blue note | 8 | A #4 em cada desenho, nos recortes, nas transições e nos pares de cordas, e os bends de meio tom 4 → #4 e #4 → 5 |
+| 9 · Sequências não-lineares | 9 | Grupos de 3 e de 4, saltos de terça, repetições e combinações, no desenho e aplicados a todos os desenhos, pares de cordas, blue note, mista e bend |
+| 10 · Pentatônicas e CAGED | 10 | Cada desenho no seu formato (E → D → C → A → G): o acorde arpejado com a pentatônica ao redor, e a pentatônica virando a escala CAGED (notas novas em lilás) |
+| 11 · Modos | 11 | Eólio (+2, b6), Dórico (+2, 6), Jônico (+4, 7) e Mixolídio (+4, b7): pentatônica pura → modo → recortes em cada desenho, transição e par de cordas |
 
 **Bends:** na pista a nota tem um anel dourado e a amplitude ("↑ 1 tom"). Com a guitarra, o tempo vale pela
 palhetada e o acerto é confirmado quando a altura chega na nota-alvo (até 0,6 s depois). No teclado, basta a corda.
@@ -78,6 +81,7 @@ O progresso (estrelas e revisões) fica em `%AppData%\GuitarPlay\progress.json`.
    afinador e calibração de latência (5 batidas, mediana). Vale na Pista, na Caça e no "ache a nota" do Treino.
 3. **Capítulos 2 a 5** (feito): mundos com desbloqueio por estrelas.
 4. **Capítulos 6 a 8** (feito): bends, pentatônicas mistas e blue note.
-5. **Próximos**: capítulos 9 a 11, bases de acompanhamento, músicas para tocar junto e animações de fundo.
+5. **Capítulos 9 a 11** (feito): sequências não-lineares, CAGED e modos. O livro inteiro está no jogo.
+6. **Próximos**: bases de acompanhamento e improviso, músicas para tocar junto e animações de fundo.
 
 O PDF do ebook não faz parte do repositório (direitos autorais).

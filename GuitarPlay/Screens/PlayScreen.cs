@@ -50,7 +50,7 @@ public sealed class PlayScreen : IScreen
 
     Color HintColor(string degree) => Assist switch
     {
-        <= 2 => Palette.ForDegree(degree),
+        <= 2 => Palette.ForDegree(degree, _level.Extras),
         3 when degree == "1" => Palette.Root,
         _ => Palette.Neutral,
     };
@@ -287,7 +287,8 @@ public sealed class PlayScreen : IScreen
         // Legenda montada com os graus que aparecem no nível (menor, maior ou os dois).
         var degrees = _level.Notes.Select(n => n.Degree).Distinct().ToList();
         var thirds = degrees.Where(d => d is "b3" or "3");
-        var others = degrees.Where(d => d is not ("1" or "b3" or "3" or "5" or "#4")).OrderBy(d => d.TrimStart('b'));
+        var extras = degrees.Where(d => _level.Extras?.Contains(d) == true).ToList();
+        var others = degrees.Where(d => d is not ("1" or "b3" or "3" or "5" or "#4") && !extras.Contains(d)).OrderBy(d => d.TrimStart('b', '#'));
         var legend = new List<(string Label, Color Color)>
         {
             ("Tônica (1)", Palette.Root),
@@ -295,6 +296,7 @@ public sealed class PlayScreen : IScreen
             ("Quinta (5)", Palette.Fifth),
         };
         if (degrees.Contains("#4")) legend.Add(("Blue note (#4)", Palette.BlueNote));
+        if (extras.Count > 0) legend.Add(($"Notas novas ({string.Join(", ", extras)})", Palette.Added));
         legend.Add(($"Outras ({string.Join(", ", others)})", Palette.Other));
         string[] labels = legend.Select(l => l.Label).ToArray();
         Color[] colors = legend.Select(l => l.Color).ToArray();

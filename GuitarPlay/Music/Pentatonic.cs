@@ -46,6 +46,9 @@ public static class Pentatonic
         "6" => "sexta maior",
         "b7" => "sétima menor",
         "#4" => "quarta aumentada (blue note)",
+        "b2" => "segunda menor",
+        "b6" => "sexta menor",
+        "7" => "sétima maior",
         _ => degree,
     };
 
@@ -105,6 +108,39 @@ public static class Pentatonic
     /// <summary>A próxima nota da pentatônica acima de uma altura (destino de um bend).</summary>
     public static int NextScalePitch(int pitch, int tonicPc, ScaleQuality quality) =>
         NextInScale(pitch, quality == ScaleQuality.Minor ? tonicPc : MathUtil.Mod(tonicPc + 9, 12));
+
+    /// <summary>
+    /// Acrescenta graus da escala diatônica ou do modo dentro da região do desenho (ex.: 2 e b6 no Eólio).
+    /// Cada nota nova vai para a corda em que fica entre as notas que já existem ali, ou o mais perto delas,
+    /// sem sair da região do desenho.
+    /// </summary>
+    public static List<ScaleNote> AddDegrees(IReadOnlyList<ScaleNote> shape, int tonicPc, params int[] intervals)
+    {
+        int minFret = shape.Min(n => n.Fret), maxFret = shape.Max(n => n.Fret);
+        var notes = shape.ToList();
+        // Procura um pouco abaixo e acima das pontas: a escala CAGED pode começar antes da tônica (ex.: F# na 6ª corda).
+        for (int pitch = shape.Min(n => n.Midi) - 2; pitch <= shape.Max(n => n.Midi) + 2; pitch++)
+        {
+            if (!intervals.Contains(MathUtil.Mod(pitch - tonicPc, 12))) continue;
+            ScaleNote? best = null;
+            int bestScore = int.MaxValue;
+            for (int s = 6; s >= 1; s--)
+            {
+                int fret = pitch - Tuning.OpenPitch(s);
+                if (fret < Math.Max(0, minFret - 1) || fret > maxFret + 1) continue;
+                var frets = shape.Where(n => n.String == s).Select(n => n.Fret).ToList();
+                int score = frets.Count == 0 ? 10
+                    : fret < frets.Min() ? frets.Min() - fret
+                    : fret > frets.Max() ? fret - frets.Max() : 0;
+                if (fret < minFret || fret > maxFret) score++;
+                if (score >= bestScore) continue;
+                bestScore = score;
+                best = new ScaleNote(s, fret, pitch, DegreeOf(pitch, tonicPc));
+            }
+            if (best is { } note) notes.Add(note);
+        }
+        return notes.OrderBy(n => n.Midi).ThenByDescending(n => n.String).ToList();
+    }
 
     /// <summary>
     /// Acrescenta uma nota ao lado de cada ocorrência de um grau, na mesma corda

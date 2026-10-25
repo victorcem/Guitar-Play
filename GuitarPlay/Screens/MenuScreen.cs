@@ -158,7 +158,7 @@ public sealed class MenuScreen : IScreen
             _game.Text(_notice, new Vector2(40, 518), 18, Palette.Other, bold: true);
         else
             _game.Text($"{level.Title} · {level.Subtitle}", new Vector2(40, 518), 18, Palette.Text, bold: true);
-        _fretboard.DrawSprites(_game, level.ShapeNotes, null, _time);
+        _fretboard.DrawSprites(_game, level.ShapeNotes, null, _time, level.Extras);
 
         _game.Batch.End();
     }

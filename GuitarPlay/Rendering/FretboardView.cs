@@ -84,11 +84,12 @@ public sealed class FretboardView
     }
 
     /// <summary>Desenho completo com os graus coloridos e, opcionalmente, a próxima nota pulsando.</summary>
-    public void DrawSprites(GuitarPlayGame game, IEnumerable<ScaleNote> notes, (int String, int Fret)? highlight, double time)
+    public void DrawSprites(GuitarPlayGame game, IEnumerable<ScaleNote> notes, (int String, int Fret)? highlight, double time,
+        IReadOnlyList<string>? extras = null)
     {
         DrawInlays(game);
         foreach (var note in notes)
-            DrawMark(game, new FretMark(note.String, note.Fret, Palette.ForDegree(note.Degree), note.Degree));
+            DrawMark(game, new FretMark(note.String, note.Fret, Palette.ForDegree(note.Degree, extras), note.Degree));
         if (highlight is { } h) DrawPulse(game, h.String, h.Fret, time);
     }
 }
