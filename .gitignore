@@ -1,0 +1,6 @@
+bin/
+obj/
+.vs/
+*.user
+# O ebook é material com direitos autorais: fica só local
+*.pdf
