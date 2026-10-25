@@ -247,7 +247,9 @@ public sealed class PlayScreen : IScreen
         _game.Batch.End();
         bloom.End(_game.Canvas);
 
-        p.Rect(770, 18, 480, 486, Color.Black * 0.45f);
+        // Painel do HUD quase opaco: a treliça e a plateia não podem cruzar os números e a legenda.
+        p.Rect(770, 18, 480, 486, new Color(8, 8, 18) * 0.86f);
+        p.Rect(770, 18, 480, 3, Palette.Gold * 0.8f);
         _fretboard.DrawBase(p);
         p.Flush();
 
