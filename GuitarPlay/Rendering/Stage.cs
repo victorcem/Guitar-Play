@@ -114,7 +114,7 @@ public sealed class Stage
             Add("speaker.001", new Vector3(side * 12.6f, 0, 10.6f));
             Add("spotlight.005", new Vector3(side * 3.2f, 2, 7.9f));
         }
-        Add("mic.001", new Vector3(0.3f, 2, 6.2f));
+        // Sem o microfone do pacote: a vocalista traz o pedestal dela.
         for (int i = 0; i < 9; i++) Add("barricade", new Vector3(-12 + i * 3, 0, 13.5f));
 
         string[] hanging = { "spotlight.004", "spotlight.001", "spotlight.003", "spotlight.002" };

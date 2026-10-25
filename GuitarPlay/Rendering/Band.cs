@@ -31,13 +31,13 @@ public sealed class Band
     /// <summary>Altura de um músico no mundo 3D do palco (maior que o real, para aparecer bem).</summary>
     const float WorldHeight = 6.2f;
 
-    // Posições no palco 3D (x: esquerda/direita, z: fundo/frente). A pista ocupa o meio da tela, então a
-    // banda fica nas laterais: guitarra e voz à esquerda, baixo à direita (a faixa entre a pista e o painel
-    // só cabe um) e a bateria num praticável alto no fundo à esquerda, atrás da guitarra e da voz.
-    static readonly Vector3 DrummerSpot = new(-15.2f, 10.2f, -4);
-    static readonly Vector3 GuitaristSpot = new(-15.8f, 2, 6);
-    static readonly Vector3 BassistSpot = new(10.4f, 2, 6);
-    static readonly Vector3 VocalistSpot = new(-11.3f, 2, 8.6f);
+    // Posições no palco 3D (x: esquerda/direita, z: fundo/frente). Como num show: vocalista no centro,
+    // guitarra à esquerda, baixo à direita e a bateria num praticável ao fundo, um pouco para o lado.
+    // A banda é desenhada antes da pista, então fica atrás dela (a pista é translúcida).
+    static readonly Vector3 DrummerSpot = new(5.4f, 5.4f, -4);
+    static readonly Vector3 GuitaristSpot = new(-11.5f, 2, 6.4f);
+    static readonly Vector3 BassistSpot = new(8.6f, 2, 6.4f);
+    static readonly Vector3 VocalistSpot = new(0, 2, 7.6f);
 
     static readonly Color Outline = new(30, 22, 32);
 
