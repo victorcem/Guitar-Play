@@ -3,7 +3,10 @@ using Microsoft.Xna.Framework;
 
 namespace GuitarPlay.Rendering;
 
-/// <summary>Mini braço da guitarra (como os diagramas do livro): corda 1 em cima, corda 6 embaixo.</summary>
+/// <summary>Uma bolinha no braço: posição, cor e rótulo opcional.</summary>
+public readonly record struct FretMark(int String, int Fret, Color Color, string? Label = null);
+
+/// <summary>Braço da guitarra (como os diagramas do livro): corda 1 em cima, corda 6 embaixo.</summary>
 public sealed class FretboardView
 {
     public const int Frets = 17;
@@ -15,12 +18,28 @@ public sealed class FretboardView
 
     float NutX => _area.X + 40;
     float FretWidth => (_area.Right - 10 - NutX) / Frets;
+    float StringSpacing => (_area.Height - 44) / 5f;
     float Top => StringY(1) - 12;
     float Bottom => StringY(6) + 12;
 
+    /// <summary>Raio das bolinhas: cresce com o tamanho do braço.</summary>
+    public float NoteRadius => Math.Clamp(StringSpacing * 0.42f, 11f, 21f);
+
     float FretLineX(int fret) => NutX + fret * FretWidth;
     float NoteX(int fret) => fret == 0 ? NutX - 18 : NutX + (fret - 0.5f) * FretWidth;
-    float StringY(int guitarString) => _area.Y + 14 + (guitarString - 1) * (_area.Height - 44) / 5f;
+    float StringY(int guitarString) => _area.Y + 14 + (guitarString - 1) * StringSpacing;
+
+    public Vector2 Position(int guitarString, int fret) => new(NoteX(fret), StringY(guitarString));
+
+    /// <summary>Corda e casa sob um ponto da tela, ou null se estiver fora do braço.</summary>
+    public (int String, int Fret)? HitTest(Vector2 point)
+    {
+        int guitarString = (int)MathF.Round((point.Y - StringY(1)) / StringSpacing) + 1;
+        if (guitarString is < 1 or > 6 || MathF.Abs(point.Y - StringY(guitarString)) > StringSpacing / 2) return null;
+        if (point.X < NutX - 36 || point.X > FretLineX(Frets)) return null;
+        int fret = point.X < NutX ? 0 : (int)((point.X - NutX) / FretWidth) + 1;
+        return (guitarString, fret);
+    }
 
     public void DrawBase(Primitives p)
     {
@@ -35,8 +54,8 @@ public sealed class FretboardView
         }
     }
 
-    /// <param name="highlight">Corda e casa da próxima nota a tocar, se houver.</param>
-    public void DrawSprites(GuitarPlayGame game, IEnumerable<ScaleNote> notes, (int String, int Fret)? highlight, double time)
+    /// <summary>Marcadores de casa e números. Chamar antes das bolinhas.</summary>
+    public void DrawInlays(GuitarPlayGame game)
     {
         float midY = (StringY(3) + StringY(4)) / 2;
         foreach (int fret in SingleInlays)
@@ -46,18 +65,29 @@ public sealed class FretboardView
 
         for (int fret = 1; fret <= Frets; fret++)
             game.Text(fret.ToString(), new Vector2(NoteX(fret), Bottom + 4), 13, Palette.TextFaint, align: Align.Center);
+    }
 
+    public void DrawMark(GuitarPlayGame game, FretMark mark, float radiusScale = 1f)
+    {
+        var pos = Position(mark.String, mark.Fret);
+        float radius = NoteRadius * radiusScale;
+        game.Circle(pos, radius, mark.Color);
+        if (mark.Label is not null)
+            game.Text(mark.Label, pos, radius * 1.1f, new Color(15, 15, 25), bold: true, align: Align.Center, middle: true);
+    }
+
+    public void DrawPulse(GuitarPlayGame game, int guitarString, int fret, double time, Color? color = null)
+    {
+        float pulse = 0.6f + 0.4f * MathF.Sin((float)time * 10f);
+        game.Ring(Position(guitarString, fret), NoteRadius + 6, (color ?? Color.White) * pulse);
+    }
+
+    /// <summary>Desenho completo com os graus coloridos e, opcionalmente, a próxima nota pulsando.</summary>
+    public void DrawSprites(GuitarPlayGame game, IEnumerable<ScaleNote> notes, (int String, int Fret)? highlight, double time)
+    {
+        DrawInlays(game);
         foreach (var note in notes)
-        {
-            var pos = new Vector2(NoteX(note.Fret), StringY(note.String));
-            game.Circle(pos, 11, Palette.ForDegree(note.Degree));
-            game.Text(note.Degree, pos, 12, new Color(15, 15, 25), bold: true, align: Align.Center, middle: true);
-        }
-
-        if (highlight is { } h)
-        {
-            float pulse = 0.6f + 0.4f * MathF.Sin((float)time * 10f);
-            game.Ring(new Vector2(NoteX(h.Fret), StringY(h.String)), 17, Color.White * pulse);
-        }
+            DrawMark(game, new FretMark(note.String, note.Fret, Palette.ForDegree(note.Degree), note.Degree));
+        if (highlight is { } h) DrawPulse(game, h.String, h.Fret, time);
     }
 }

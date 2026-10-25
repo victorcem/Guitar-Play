@@ -11,13 +11,24 @@ Feito em C# com MonoGame (.NET 8).
 dotnet run --project GuitarPlay
 ```
 
+## Atividades (por desenho)
+
+1. **Constelações**: lição guiada. Primeiro as tônicas, depois cada intervalo desenhado como um caminho
+   a partir da tônica mais próxima ("na corda vizinha mais aguda, 2 casas à frente"), com som e uma dica do caráter da nota.
+2. **Caça ao intervalo**: 60 s para clicar em todas as b3, depois 4, 5 e b7. Só as tônicas aparecem.
+3. **Qual é essa nota?**: uma nota acende e toca depois da tônica; responda o grau (teclas 1 a 4). 12 perguntas.
+4. **Pista**: as notas descem no tempo do metrônomo, estilo Guitar Hero.
+
 ## Controles
 
 | Tela | Teclas |
 |---|---|
-| Menu | ↑ ↓ escolhe o nível · ← → muda o BPM · Enter começa · Esc sai |
+| Menu | ↑ ↓ desenho · ← → atividade · + − BPM da pista · Enter começa · Esc sai |
+| Constelações | → próximo · ← voltar · R ouvir de novo · Esc menu |
+| Caça ao intervalo | clique nas notas · Esc menu |
+| Qual é essa nota? | 1 a 4 ou clique · R ouvir de novo · Esc menu |
 | Pista | 1 a 6 (número da corda) ou A S D F G H (6ª corda à esquerda) · Esc volta |
-| Resultado | Enter toca de novo · Esc volta ao menu |
+| Resultado | Enter joga de novo · Esc volta ao menu |
 
 ## Pontuação
 

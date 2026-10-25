@@ -3,7 +3,16 @@ namespace GuitarPlay.Music;
 /// <summary>Uma nota da pista: em que tempo (em batidas) ela chega e onde tocar.</summary>
 public sealed record ChartNote(double Beat, int String, int Fret, int Midi, string Degree);
 
-public sealed record Level(string Title, string Subtitle, IReadOnlyList<ScaleNote> ShapeNotes, IReadOnlyList<ChartNote> Notes);
+public sealed record Level(
+    string Title,
+    string Subtitle,
+    int TonicPc,
+    ScaleQuality Quality,
+    IReadOnlyList<ScaleNote> ShapeNotes,
+    IReadOnlyList<ChartNote> Notes)
+{
+    public string KeyName => $"{NoteNames.Of(TonicPc)} {(Quality == ScaleQuality.Minor ? "menor" : "maior")}";
+}
 
 public static class LevelFactory
 {
@@ -22,6 +31,6 @@ public static class LevelFactory
         var path = shapeNotes.Concat(Enumerable.Reverse(shapeNotes).Skip(1));
         var chart = path.Select((n, i) => new ChartNote(i, n.String, n.Fret, n.Midi, n.Degree)).ToList();
         string key = $"{NoteNames.Of(tonicPc)} {(quality == ScaleQuality.Minor ? "menor" : "maior")}";
-        return new Level($"Desenho {shape}", $"{key} · sobe e desce", shapeNotes, chart);
+        return new Level($"Desenho {shape}", $"{key} · sobe e desce", tonicPc, quality, shapeNotes, chart);
     }
 }

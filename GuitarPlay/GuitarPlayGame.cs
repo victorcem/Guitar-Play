@@ -22,6 +22,7 @@ public sealed class GuitarPlayGame : Game
     readonly HashSet<Keys> _pressedQueue = new();
     readonly HashSet<Keys> _pressed = new();
     KeyboardState _previousKeys;
+    MouseState _previousMouse;
     IScreen _screen = null!;
     RenderTarget2D _canvas = null!;
 
@@ -54,6 +55,12 @@ public sealed class GuitarPlayGame : Game
     public SpriteBatch Batch { get; private set; } = null!;
     public Primitives Primitives { get; private set; } = null!;
     public Metronome Metronome { get; private set; } = null!;
+    public NoteSynth Synth { get; private set; } = null!;
+
+    /// <summary>Posição do mouse na tela virtual de 1280x720.</summary>
+    public Vector2 MousePosition { get; private set; }
+    public bool Clicked { get; private set; }
+
     FontSystem Fonts { get; set; } = null!;
     FontSystem BoldFonts { get; set; } = null!;
     Texture2D CircleTexture { get; set; } = null!;
@@ -66,6 +73,7 @@ public sealed class GuitarPlayGame : Game
             preferredMultiSampleCount: 4, RenderTargetUsage.DiscardContents);
         Primitives = new Primitives(GraphicsDevice, Width, Height);
         Metronome = new Metronome();
+        Synth = new NoteSynth();
         Fonts = LoadFonts("segoeui.ttf", "seguisym.ttf", "arial.ttf");
         BoldFonts = LoadFonts("segoeuib.ttf", "seguisym.ttf", "arialbd.ttf");
         CircleTexture = MakeDisc(innerRadius: 0);
@@ -88,6 +96,14 @@ public sealed class GuitarPlayGame : Game
         foreach (var key in keys.GetPressedKeys())
             if (!_previousKeys.IsKeyDown(key)) _pressed.Add(key);
         _previousKeys = keys;
+
+        var mouse = Mouse.GetState();
+        var (offset, scale) = Letterbox();
+        MousePosition = (new Vector2(mouse.X, mouse.Y) - offset) / scale;
+        Clicked = IsActive && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
+        _previousMouse = mouse;
+        Synth.Update(gameTime.ElapsedGameTime.TotalSeconds);
+
         _screen.Update(gameTime);
         base.Update(gameTime);
     }
@@ -101,19 +117,26 @@ public sealed class GuitarPlayGame : Game
 
         // Escala mantendo 16:9, com tarjas pretas se a janela tiver outra proporção.
         GraphicsDevice.Clear(Color.Black);
-        var viewport = GraphicsDevice.Viewport;
-        float scale = MathF.Min(viewport.Width / (float)Width, viewport.Height / (float)Height);
+        var (offset, scale) = Letterbox();
         var size = new Vector2(Width, Height) * scale;
-        var offset = (new Vector2(viewport.Width, viewport.Height) - size) / 2;
         Batch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp);
         Batch.Draw(_canvas, new Rectangle((int)offset.X, (int)offset.Y, (int)size.X, (int)size.Y), Color.White);
         Batch.End();
         base.Draw(gameTime);
     }
 
+    (Vector2 Offset, float Scale) Letterbox()
+    {
+        var viewport = GraphicsDevice.Viewport;
+        float scale = MathF.Min(viewport.Width / (float)Width, viewport.Height / (float)Height);
+        var size = new Vector2(Width, Height) * scale;
+        return ((new Vector2(viewport.Width, viewport.Height) - size) / 2, scale);
+    }
+
     protected override void UnloadContent()
     {
         Metronome.Dispose();
+        Synth.Dispose();
         base.UnloadContent();
     }
 

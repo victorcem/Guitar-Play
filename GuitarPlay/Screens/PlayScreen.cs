@@ -22,8 +22,7 @@ public sealed class PlayScreen : IScreen
     static readonly string[] RowKeyNames = { "H", "G", "F", "D", "S", "A" };
 
     readonly GuitarPlayGame _game;
-    readonly int _levelIndex;
-    readonly int _bpmIndex;
+    readonly MenuState _state;
     readonly Level _level;
     readonly int _bpm;
     readonly double _secondsPerBeat;
@@ -46,13 +45,12 @@ public sealed class PlayScreen : IScreen
         public float Age { get; set; }
     }
 
-    public PlayScreen(GuitarPlayGame game, int levelIndex, int bpmIndex)
+    public PlayScreen(GuitarPlayGame game, MenuState state)
     {
         _game = game;
-        _levelIndex = levelIndex;
-        _bpmIndex = bpmIndex;
-        _level = LevelFactory.World1[levelIndex];
-        _bpm = MenuScreen.BpmOptions[bpmIndex];
+        _state = state;
+        _level = state.Level;
+        _bpm = state.Bpm;
         _secondsPerBeat = 60.0 / _bpm;
         _lookAhead = LookAheadBeats * _secondsPerBeat;
         _noteTimes = _level.Notes.Select(n => n.Beat * _secondsPerBeat).ToArray();
@@ -66,7 +64,7 @@ public sealed class PlayScreen : IScreen
     {
         if (_game.Pressed(Keys.Escape))
         {
-            _game.ShowScreen(new MenuScreen(_game, _levelIndex, _bpmIndex));
+            _game.ShowScreen(new MenuScreen(_game, _state));
             return;
         }
 
@@ -91,7 +89,7 @@ public sealed class PlayScreen : IScreen
         foreach (var popup in _popups) popup.Age += dt;
         _popups.RemoveAll(popup => popup.Age > 0.8f);
 
-        if (_time >= _endTime) _game.ShowScreen(new ResultScreen(_game, _judge, _levelIndex, _bpmIndex));
+        if (_time >= _endTime) _game.ShowScreen(new ResultScreen(_game, BuildResult(), _state));
     }
 
     void OnPlayed(int guitarString, PlayedNote played)
@@ -102,6 +100,13 @@ public sealed class PlayScreen : IScreen
         if (judgement.Grade == HitGrade.Perfect) AddPopup("Perfeito!", Palette.Gold, guitarString);
         else AddPopup("Bom", Palette.Third, guitarString);
     }
+
+    ActivityResult BuildResult() => new("Pista", $"{_level.Title} · {_level.KeyName} · {_bpm} BPM", _judge.Accuracy, new[]
+    {
+        ("Pontos", _judge.Score.ToString("N0")),
+        ("Maior combo", _judge.MaxCombo.ToString()),
+        ("Perfeito / Bom / Errou", $"{_judge.Perfects} / {_judge.Goods} / {_judge.Misses}"),
+    });
 
     void AddPopup(string text, Color color, int guitarString) =>
         _popups.Add(new Popup { Text = text, Color = color, String = guitarString });
