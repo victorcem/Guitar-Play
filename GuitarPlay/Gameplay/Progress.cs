@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace GuitarPlay.Gameplay;
@@ -28,34 +27,11 @@ public sealed class Progress
     public Dictionary<string, int> BestStars { get; set; } = new();
     public Dictionary<string, ReviewItem> Reviews { get; set; } = new();
 
-    static string FilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GuitarPlay", "progress.json");
+    const string FileName = "progress.json";
 
-    public static Progress Load()
-    {
-        try
-        {
-            if (File.Exists(FilePath)) return JsonSerializer.Deserialize<Progress>(File.ReadAllText(FilePath)) ?? new();
-        }
-        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException)
-        {
-            // Arquivo corrompido ou inacessível: começa do zero em vez de travar o jogo.
-        }
-        return new();
-    }
+    public static Progress Load() => JsonStore.Load<Progress>(FileName);
 
-    public void Save()
-    {
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            // Sem disco: o progresso desta sessão continua na memória.
-        }
-    }
+    public void Save() => JsonStore.Save(FileName, this);
 
     public static string StarsKey(int levelIndex, string activity, int assist = 0) => $"{levelIndex}:{activity}:{assist}";
 

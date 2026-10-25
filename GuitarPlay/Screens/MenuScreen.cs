@@ -57,6 +57,11 @@ public sealed class MenuScreen : IScreen
         }
         ClampAssist();
 
+        if (_game.Pressed(Keys.A))
+        {
+            _game.ShowScreen(new AudioSetupScreen(_game, _state));
+            return;
+        }
         if (_game.Pressed(Keys.T) || (_game.Clicked && TrainingPanel.Contains(_game.MousePosition)))
             _game.ShowScreen(new TrainingScreen(_game, _state with { Activity = Activity.Training }));
         else if (_game.Pressed(Keys.Enter) || _game.Pressed(Keys.Space))
@@ -90,6 +95,7 @@ public sealed class MenuScreen : IScreen
 
         _game.Text("GUITAR PLAY", new Vector2(60, 30), 54, Palette.Gold, bold: true, shadow: true);
         _game.Text("Mundo 1 · Os 5 desenhos da pentatônica e seus intervalos", new Vector2(62, 96), 19, Palette.TextDim);
+        DrawInputStatus();
 
         for (int i = 0; i < Activities.Length; i++)
         {
@@ -118,6 +124,25 @@ public sealed class MenuScreen : IScreen
         _fretboard.DrawSprites(_game, level.ShapeNotes, null, _time);
 
         _game.Batch.End();
+    }
+
+    void DrawInputStatus()
+    {
+        string status;
+        Color color;
+        if (_game.Input is { } input)
+        {
+            string name = input.DeviceName.Length > 32 ? input.DeviceName[..31] + "…" : input.DeviceName;
+            var settings = _game.Settings;
+            status = $"Guitarra: {name} · " + (settings.Calibrated ? $"{settings.LatencySeconds * 1000:0} ms" : "não calibrada");
+            color = settings.Calibrated ? Palette.Third : Palette.Other;
+        }
+        else
+        {
+            status = _game.InputError is null ? "Entrada: teclado" : "Guitarra desconectada · usando o teclado";
+            color = _game.InputError is null ? Palette.TextDim : Palette.Other;
+        }
+        _game.Text($"{status}   (A: áudio)", new Vector2(1220, 44), 16, color, align: Align.Right);
     }
 
     void DrawActivityPanel()

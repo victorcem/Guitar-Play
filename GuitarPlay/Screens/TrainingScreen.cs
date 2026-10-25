@@ -96,6 +96,20 @@ public sealed class TrainingScreen : IScreen
             _game.Synth.Play(note.Midi);
             Answer(note.Degree == Current.Item.Degree);
         }
+        else if (PlayedOnGuitar() is { } played && played.Degree != "1")
+        {
+            _clicked = played;
+            Answer(played.Degree == Current.Item.Degree);
+        }
+    }
+
+    /// <summary>A nota do desenho tocada na guitarra neste quadro (cada altura aparece uma vez no desenho).</summary>
+    ScaleNote? PlayedOnGuitar()
+    {
+        foreach (var (midi, _) in _game.AudioNotes)
+            foreach (var note in Shape)
+                if (note.Midi == midi) return note;
+        return null;
     }
 
     ScaleNote? NoteAt(Vector2 point)
@@ -156,7 +170,8 @@ public sealed class TrainingScreen : IScreen
             Chrome.Footer(_game, "Teclas 1 a 4 ou clique   ·   R ouvir de novo   ·   Esc menu");
         }
         else
-            Chrome.Footer(_game, "Clique na nota   ·   R ouvir de novo   ·   Esc menu");
+            Chrome.Footer(_game, _game.Input is null ? "Clique na nota   ·   R ouvir de novo   ·   Esc menu"
+                : "Toque a nota na guitarra ou clique   ·   R ouvir de novo   ·   Esc menu");
         _game.Batch.End();
     }
 
