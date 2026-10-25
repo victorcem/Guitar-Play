@@ -61,6 +61,14 @@ O progresso (estrelas e revisões) fica em `%AppData%\GuitarPlay\progress.json`.
 | Pista | 1 a 6 (número da corda) ou A S D F G H (6ª corda à esquerda) · Esc volta |
 | Resultado | Enter joga de novo · Esc volta ao menu |
 
+## Show
+
+A pista fica num palco: canhões de luz varrendo no ritmo do metrônomo, poeira de luz e uma plateia em silhueta
+que pula na batida e se anima com o combo (mãos para cima e isqueiros acesos quando o combo passa de ~15).
+Acertos soltam faíscas e uma onda no alvo; a cada 10, 20, 30, 50… acertos seguidos aparece um aviso de combo;
+no multiplicador x4 a pista pega fogo; um erro pisca as bordas de vermelho. No resultado, as estrelas entram uma
+a uma e, se o nível foi concluído, cai confete. Tudo é desenhado em código, sem imagens.
+
 ## Tocando com a guitarra
 
 1. Ligue a Pocket Master (ou a interface) no USB e escolha um timbre **limpo** (sem distorção, delay ou reverb).
@@ -82,6 +90,7 @@ O progresso (estrelas e revisões) fica em `%AppData%\GuitarPlay\progress.json`.
 3. **Capítulos 2 a 5** (feito): mundos com desbloqueio por estrelas.
 4. **Capítulos 6 a 8** (feito): bends, pentatônicas mistas e blue note.
 5. **Capítulos 9 a 11** (feito): sequências não-lineares, CAGED e modos. O livro inteiro está no jogo.
-6. **Próximos**: bases de acompanhamento e improviso, músicas para tocar junto e animações de fundo.
+6. **Animações** (feito): palco, plateia, faíscas, combo, fogo e resultado animado.
+7. **Próximos**: bases de acompanhamento e improviso, músicas para tocar junto.
 
 O PDF do ebook não faz parte do repositório (direitos autorais).

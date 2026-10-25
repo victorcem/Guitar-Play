@@ -40,6 +40,18 @@ public sealed class Primitives
         Quad(from + normal, to + normal, to - normal, from - normal, color);
     }
 
+    /// <summary>Círculo cheio feito de triângulos (para cabeças da plateia e poeira de luz).</summary>
+    public void Disc(Vector2 center, float radius, Color color, int segments = 12)
+    {
+        for (int i = 0; i < segments; i++)
+        {
+            float a0 = MathHelper.TwoPi * i / segments, a1 = MathHelper.TwoPi * (i + 1) / segments;
+            Add(center, color);
+            Add(center + radius * new Vector2(MathF.Cos(a0), MathF.Sin(a0)), color);
+            Add(center + radius * new Vector2(MathF.Cos(a1), MathF.Sin(a1)), color);
+        }
+    }
+
     public void VerticalGradient(float x, float y, float width, float height, Color top, Color bottom) =>
         Quad(new(x, y), new(x + width, y), new(x + width, y + height), new(x, y + height), top, top, bottom, bottom);
 
