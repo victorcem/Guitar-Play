@@ -20,6 +20,8 @@ public sealed class Particles
 
     public int Count => _items.Count;
 
+    public void Clear() => _items.Clear();
+
     public float Next(float min, float max) => min + (float)_random.NextDouble() * (max - min);
 
     public void Emit(Vector2 position, Vector2 velocity, Color color, float life, float size, float gravity = 0) =>

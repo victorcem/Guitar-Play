@@ -27,7 +27,15 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FontStashSharp.MonoGame" Version="1.6.2" />
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.*" />
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.6" />
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Arte do palco (CC0, ver CREDITS.md): copiada como arquivo solto, sem content pipeline. -->
+    <None Include="Content\**\*.png;Content\**\*.obj;Content\**\*.mgfxo;Content\Licenses\*.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <!-- Recompila o shader quando o .fx muda (o .mgfxo também fica no git para quem não tem o mgfxc). -->
+  <Target Name="CompileShaders" BeforeTargets="BeforeBuild" Inputs="Content\Effects\Bloom.fx" Outputs="Content\Effects\Bloom.mgfxo">
+    <Exec Command="dotnet tool restore &amp;&amp; dotnet mgfxc Content\Effects\Bloom.fx Content\Effects\Bloom.mgfxo /Profile:OpenGL" />
+  </Target>
 </Project>

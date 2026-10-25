@@ -34,8 +34,9 @@ public sealed class PlayScreen : IScreen
     readonly FretboardView _fretboard = new(new Rectangle(40, 548, 1200, 160));
     readonly float[] _laneFlash = new float[6];
     readonly List<Popup> _popups = new();
-    // Show: palco com plateia ao fundo, faíscas e ondas nos acertos, faixas de combo e fogo no x4.
-    readonly Stage _stage = new(seed: 3, crowdBase: 548);
+    // Show: palco 2.5D com plateia ao fundo, chama e faíscas nos acertos, faixas de combo e raios no x4.
+    readonly Stage _stage;
+    readonly HitFlames _flames;
     readonly Particles _sparks = new();
     readonly List<Ripple> _ripples = new();
     double _time;
@@ -94,6 +95,9 @@ public sealed class PlayScreen : IScreen
         _endTime = _noteTimes[^1] + 2 * _secondsPerBeat;
         _time = -CountInBeats * _secondsPerBeat - 0.4;
         _lastClickBeat = (int)Math.Floor(_time / _secondsPerBeat);
+        _stage = game.Stage;
+        _stage.Reset();
+        _flames = new HitFlames(game.Assets);
     }
 
     public void Update(GameTime gameTime)
@@ -130,7 +134,7 @@ public sealed class PlayScreen : IScreen
             _missFlash = 1;
         }
 
-        UpdateShow(dt);
+        UpdateShow(dt, beat);
 
         for (int i = 0; i < _laneFlash.Length; i++) _laneFlash[i] = Math.Max(0, _laneFlash[i] - dt * 6);
         foreach (var popup in _popups) popup.Age += dt;
@@ -155,13 +159,16 @@ public sealed class PlayScreen : IScreen
 
         var target = _highway.Project(Highway.LaneX(note.String), 0);
         var color = Assist >= 3 ? Palette.Gold : Palette.ForDegree(note.Degree, _level.Extras);
-        _sparks.Burst(target, color, judgement.Grade == HitGrade.Perfect ? 18 : 10, 560);
+        bool perfect = judgement.Grade == HitGrade.Perfect;
+        _sparks.Burst(target, color, perfect ? 18 : 10, 560);
         _ripples.Add(new Ripple { Position = target, Color = color });
+        _flames.Add(target, OnFire ? Stage.Electric : color, perfect ? 170 : 120);
 
         int combo = _judge.Combo;
         if (Array.IndexOf(ComboMilestones, combo) < 0) return;
         bool fire = combo == 30;
-        ShowBanner(fire ? "EM CHAMAS!  x4" : $"COMBO {combo}!", fire ? new Color(255, 120, 40) : Palette.Gold);
+        _stage.Kick();
+        ShowBanner(fire ? "EM CHAMAS!  x4" : $"COMBO {combo}!", fire ? Stage.Electric : Palette.Gold);
     }
 
     void ShowBanner(string text, Color color)
@@ -171,18 +178,20 @@ public sealed class PlayScreen : IScreen
         _bannerAge = 0;
     }
 
-    void UpdateShow(float dt)
+    void UpdateShow(float dt, int beat)
     {
-        // A plateia se anima com o combo (cheia aos 30 acertos seguidos).
-        _stage.Update(dt, 0.15f + _judge.Combo / 30f);
+        // A plateia se anima com o combo (cheia aos 30 acertos seguidos); o x4 liga o "star power".
+        _stage.StarPower = OnFire;
+        _stage.Update(dt, _time, beat, BeatPhase, 0.15f + _judge.Combo / 30f);
         _sparks.Update(dt);
+        _flames.Update(dt);
         foreach (var ripple in _ripples) ripple.Age += dt;
         _ripples.RemoveAll(r => r.Age > 0.45f);
         _bannerAge += dt;
         _missFlash = MathF.Max(0, _missFlash - dt * 3);
 
         if (!OnFire) return;
-        // Chamas subindo da linha de batida, como o "star power" do Guitar Hero.
+        // Chamas elétricas subindo da linha de batida, como o "star power" do Guitar Hero.
         var left = _highway.Project(-3, 0);
         var right = _highway.Project(3, 0);
         int count = (int)(dt * 140) + 1;
@@ -190,7 +199,7 @@ public sealed class PlayScreen : IScreen
         {
             float x = _sparks.Next(left.X, right.X);
             var velocity = new Vector2(_sparks.Next(-25, 25), _sparks.Next(-230, -110));
-            var flame = Color.Lerp(new Color(255, 70, 20), new Color(255, 190, 60), _sparks.Next(0, 1));
+            var flame = Color.Lerp(Stage.Electric, new Color(200, 240, 255), _sparks.Next(0, 1));
             _sparks.Emit(new Vector2(x, left.Y + 4), velocity, flame, _sparks.Next(0.3f, 0.6f), _sparks.Next(5, 10), gravity: -60);
         }
     }
@@ -210,24 +219,25 @@ public sealed class PlayScreen : IScreen
     public void Draw(GameTime gameTime)
     {
         var p = _game.Primitives;
-        _stage.DrawBackdrop(p, _time, Pulse);
-        _stage.DrawCrowd(p, _time, BeatPhase);
-        p.Rect(770, 18, 480, 486, Color.Black * 0.4f);
+        var bloom = _game.Bloom;
+        _stage.PrepareFrame(_game.Batch);
+
+        // Palco, pista e efeitos passam pelo bloom; HUD e textos vêm depois, nítidos.
+        bloom.Strength = 0.75f + 0.7f * _stage.Intensity;
+        bloom.Begin();
+        _stage.DrawStage(_game);
+        _stage.DrawCrowd(_game);
         DrawHighwayBase(p);
-        _fretboard.DrawBase(p);
         p.Flush();
 
         _game.Batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
         DrawTargets();
         DrawNotes();
-        DrawPopups();
-        DrawHud();
-        DrawCountIn();
-        DrawFretboard();
         _game.Batch.End();
 
-        // Brilhos somam luz (modo aditivo): faíscas, chamas e ondas nos alvos.
+        // Brilhos somam luz (modo aditivo): chama no alvo, faíscas e ondas.
         _game.Batch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.LinearClamp);
+        _flames.Draw(_game.Batch);
         _sparks.Draw(_game);
         foreach (var ripple in _ripples)
         {
@@ -235,8 +245,17 @@ public sealed class PlayScreen : IScreen
             _game.Ring(ripple.Position, GemRadius + 8 + 40 * k, ripple.Color * (0.8f * (1 - k)));
         }
         _game.Batch.End();
+        bloom.End(_game.Canvas);
+
+        p.Rect(770, 18, 480, 486, Color.Black * 0.45f);
+        _fretboard.DrawBase(p);
+        p.Flush();
 
         _game.Batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
+        DrawPopups();
+        DrawHud();
+        DrawCountIn();
+        DrawFretboard();
         DrawBanner();
         DrawMissFlash();
         _game.Batch.End();
@@ -267,13 +286,14 @@ public sealed class PlayScreen : IScreen
     {
         var h = _highway;
         float pulse = Pulse;
-        var near = OnFire ? new Color(70, 34, 30) : new Color(36, 38, 64);
-        var far = new Color(12, 12, 26);
+        var near = OnFire ? new Color(22, 42, 86) : new Color(36, 38, 64);
+        // O fundo da pista se dissolve no palco.
+        var far = new Color(12, 12, 26) * 0.3f;
         p.Quad(h.Project(-3, NearT), h.Project(3, NearT), h.Project(3, 1), h.Project(-3, 1), near, near, far, far);
 
-        // Trilhos laterais pulsam na batida; no x4 viram fogo.
+        // Trilhos laterais pulsam na batida; no x4 viram eletricidade.
         float flicker = 0.5f + 0.5f * MathF.Sin((float)_time * 25);
-        var rail = OnFire ? Color.Lerp(new Color(255, 80, 20), new Color(255, 200, 60), flicker) : Palette.Gold * (0.5f + 0.4f * pulse);
+        var rail = OnFire ? Color.Lerp(Stage.Electric, Color.White, flicker) : Palette.Gold * (0.5f + 0.4f * pulse);
         float railWidth = 0.06f + 0.04f * pulse;
         foreach (float side in new[] { -3f, 3f })
             p.Quad(h.Project(side - railWidth, NearT), h.Project(side + railWidth, NearT),

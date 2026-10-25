@@ -63,11 +63,19 @@ O progresso (estrelas e revisões) fica em `%AppData%\GuitarPlay\progress.json`.
 
 ## Show
 
-A pista fica num palco: canhões de luz varrendo no ritmo do metrônomo, poeira de luz e uma plateia em silhueta
-que pula na batida e se anima com o combo (mãos para cima e isqueiros acesos quando o combo passa de ~15).
-Acertos soltam faíscas e uma onda no alvo; a cada 10, 20, 30, 50… acertos seguidos aparece um aviso de combo;
-no multiplicador x4 a pista pega fogo; um erro pisca as bordas de vermelho. No resultado, as estrelas entram uma
-a uma e, se o nível foi concluído, cai confete. Tudo é desenhado em código, sem imagens.
+A pista fica na frente de um palco 2.5D: o palco é um modelo 3D (treliça, parede de LED com equalizador, caixas
+de som e refletores) com luzes que trocam de cor a cada compasso, fachos de luz varrendo o palco e o céu, fumaça e
+três fileiras de plateia em silhueta, com parallax, que pulam na batida e se animam com o combo (braços para cima e
+isqueiros acesos quando o show esquenta). Acertos soltam uma chama animada, faíscas e uma onda no alvo; a cada 10,
+20, 30, 50… acertos seguidos aparece um aviso de combo e o palco solta pirotecnia; no multiplicador x4 entra o
+"star power": luz azul elétrica, labaredas e chafarizes de faíscas no palco e a câmera balança de leve. A cena passa
+por um bloom (shader), e o HUD fica nítido por cima. Um erro pisca as bordas de vermelho. No resultado, as estrelas
+entram uma a uma e, se o nível foi concluído, cai confete.
+
+A arte do palco é CC0 (iPoly3D e Kenney), ver [CREDITS.md](CREDITS.md); o shader é compilado com o mgfxc, ver
+[GuitarPlay/Content/Effects/README.md](GuitarPlay/Content/Effects/README.md).
+
+![Pista no x4](docs/plano-b/pista-x4-star-power.png)
 
 ## Tocando com a guitarra
 

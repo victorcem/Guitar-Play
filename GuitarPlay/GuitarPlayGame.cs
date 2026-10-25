@@ -55,6 +55,12 @@ public sealed class GuitarPlayGame : Game
     }
 
     public SpriteBatch Batch { get; private set; } = null!;
+    /// <summary>Tela virtual de 1280x720 onde tudo é desenhado antes de escalar para a janela.</summary>
+    public RenderTarget2D Canvas => _canvas;
+    public Assets Assets { get; private set; } = null!;
+    public Bloom Bloom { get; private set; } = null!;
+    /// <summary>Palco 2.5D da Pista (um só, reaproveitado a cada nível).</summary>
+    public Stage Stage { get; private set; } = null!;
     public Primitives Primitives { get; private set; } = null!;
     public Metronome Metronome { get; private set; } = null!;
     public NoteSynth Synth { get; private set; } = null!;
@@ -72,8 +78,8 @@ public sealed class GuitarPlayGame : Game
     public double Now => _clock.Elapsed.TotalSeconds;
 
     readonly Stopwatch _clock = Stopwatch.StartNew();
-    // Fundo animado das telas fora da pista: as mesmas luzes do palco, mais calmas e sem plateia.
-    readonly Stage _ambient = new(seed: 11);
+    // Fundo animado das telas fora da pista: canhões de luz desenhados em código (a Pista tem o palco 2.5D).
+    readonly Backdrop _ambient = new(seed: 11);
     double _elapsed;
     readonly List<(int Midi, double Age)> _audioNotes = new();
 
@@ -93,6 +99,10 @@ public sealed class GuitarPlayGame : Game
         _canvas = new RenderTarget2D(GraphicsDevice, Width, Height, false, SurfaceFormat.Color, DepthFormat.None,
             preferredMultiSampleCount: 4, RenderTargetUsage.DiscardContents);
         Primitives = new Primitives(GraphicsDevice, Width, Height);
+        Assets = new Assets(GraphicsDevice);
+        Bloom = new Bloom(GraphicsDevice, Batch, Assets, Width, Height);
+        // O palco é montado uma vez só, no início: a Pista abre sem engasgo (e sem atrasar o relógio dela).
+        Stage = new Stage(GraphicsDevice, Assets);
         Metronome = new Metronome();
         Synth = new NoteSynth();
         if (Settings.InputDeviceId is not null) UseInput(Settings.InputDeviceId);
