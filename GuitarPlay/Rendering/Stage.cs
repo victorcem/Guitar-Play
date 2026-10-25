@@ -145,6 +145,8 @@ public sealed class Stage
                 HasLight: _random.NextDouble() < 0.18, Size: Next(0.9f, 1.08f)));
         }).ToArray();
 
+        Band = new Band(device, assets);
+
         _ledWall = new RenderTarget2D(device, 176, 80, false, SurfaceFormat.Color, DepthFormat.None);
         const float ledZ = -8.95f;
         _ledQuad = new[]
@@ -160,6 +162,9 @@ public sealed class Stage
     }
 
     float Next(float min, float max) => min + (float)_random.NextDouble() * (max - min);
+
+    /// <summary>A banda no palco (punk, jazz, reggae e hip-hop), que reage aos acertos e erros.</summary>
+    public Band Band { get; }
 
     /// <summary>Energia do show (0 a 1): vem do combo; sobe e desce suavemente.</summary>
     public float Energy => _energy;
@@ -177,10 +182,15 @@ public sealed class Stage
         StarPower = false;
         _lastBeat = int.MinValue;
         _sparks.Clear();
+        Band.Reset();
     }
 
     /// <summary>Solta a pirotecnia do palco por um instante (marcos de combo).</summary>
-    public void Kick() => _pyro = 1;
+    public void Kick()
+    {
+        _pyro = 1;
+        Band.OnMilestone();
+    }
 
     /// <param name="beat">Número da batida atual (para trocar as luzes e pular na hora certa).</param>
     /// <param name="beatPhase">Posição dentro da batida (0 a 1).</param>
@@ -202,6 +212,7 @@ public sealed class Stage
                 foreach (var spot in _pyroSpots) Fountain(spot, StarPower ? Electric : new Color(255, 170, 60));
         }
         _sparks.Update(dt);
+        Band.Update(dt, time, beat, beatPhase, _energy, StarPower);
 
         // Balanço lento sempre (dá vida ao parallax); no x4, tremor leve no ritmo.
         float t = (float)time;
@@ -330,6 +341,9 @@ public sealed class Stage
         _device.DepthStencilState = DepthStencilState.None;
 
         var batch = game.Batch;
+        // A banda fica em cima do palco e por baixo dos fachos de luz e da fumaça.
+        Band.Draw(batch, Project, Wash(0));
+
         batch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.LinearClamp);
         DrawBeams(batch, level);
         DrawSmoke(batch);

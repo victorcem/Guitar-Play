@@ -170,8 +170,25 @@ public sealed class GuitarPlayGame : Game
         base.Update(gameTime);
     }
 
+    // Medidor de quadros por segundo no título da janela (só com GUITARPLAY_FPS=1, para desenvolvimento).
+    readonly bool _showFps = Environment.GetEnvironmentVariable("GUITARPLAY_FPS") == "1";
+    int _frames;
+    double _fpsClock;
+
     protected override void Draw(GameTime gameTime)
     {
+        if (_showFps)
+        {
+            _frames++;
+            _fpsClock += gameTime.ElapsedGameTime.TotalSeconds;
+            if (_fpsClock >= 1)
+            {
+                Window.Title = $"Guitar Play · {_frames / _fpsClock:0} fps";
+                _frames = 0;
+                _fpsClock = 0;
+            }
+        }
+
         GraphicsDevice.SetRenderTarget(_canvas);
         GraphicsDevice.Clear(Palette.BackgroundBottom);
         _screen.Draw(gameTime);

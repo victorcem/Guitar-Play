@@ -132,6 +132,7 @@ public sealed class PlayScreen : IScreen
         {
             AddPopup("Errou", Palette.Miss, _level.Notes[miss.NoteIndex].String);
             _missFlash = 1;
+            _stage.Band.OnMiss();
         }
 
         UpdateShow(dt, beat);
@@ -163,6 +164,7 @@ public sealed class PlayScreen : IScreen
         _sparks.Burst(target, color, perfect ? 18 : 10, 560);
         _ripples.Add(new Ripple { Position = target, Color = color });
         _flames.Add(target, OnFire ? Stage.Electric : color, perfect ? 170 : 120);
+        _stage.Band.OnHit();
 
         int combo = _judge.Combo;
         if (Array.IndexOf(ComboMilestones, combo) < 0) return;
