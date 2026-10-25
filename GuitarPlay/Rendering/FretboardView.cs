@@ -9,7 +9,8 @@ public readonly record struct FretMark(int String, int Fret, Color Color, string
 /// <summary>Braço da guitarra (como os diagramas do livro): corda 1 em cima, corda 6 embaixo.</summary>
 public sealed class FretboardView
 {
-    public const int Frets = 17;
+    // 18 casas: o bend do Desenho 5 pede a nota-alvo presa na casa 18.
+    public const int Frets = 18;
     static readonly int[] SingleInlays = { 3, 5, 7, 9, 15, 17 };
 
     readonly Rectangle _area;
@@ -83,11 +84,12 @@ public sealed class FretboardView
     }
 
     /// <summary>Desenho completo com os graus coloridos e, opcionalmente, a próxima nota pulsando.</summary>
-    public void DrawSprites(GuitarPlayGame game, IEnumerable<ScaleNote> notes, (int String, int Fret)? highlight, double time)
+    public void DrawSprites(GuitarPlayGame game, IEnumerable<ScaleNote> notes, (int String, int Fret)? highlight, double time,
+        IReadOnlyList<string>? extras = null)
     {
         DrawInlays(game);
         foreach (var note in notes)
-            DrawMark(game, new FretMark(note.String, note.Fret, Palette.ForDegree(note.Degree), note.Degree));
+            DrawMark(game, new FretMark(note.String, note.Fret, Palette.ForDegree(note.Degree, extras), note.Degree));
         if (highlight is { } h) DrawPulse(game, h.String, h.Fret, time);
     }
 }

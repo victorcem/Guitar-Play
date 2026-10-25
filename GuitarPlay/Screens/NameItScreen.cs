@@ -97,7 +97,7 @@ public sealed class NameItScreen : IScreen
     {
         _answer = degree;
         _feedbackTime = 0;
-        _game.Progress.RecordAnswer(_state.LevelIndex, Current.Degree, WasRight);
+        _game.Progress.RecordAnswer(_state.At, Current.Degree, WasRight);
         if (WasRight)
         {
             _correct++;

@@ -21,7 +21,6 @@ public sealed class TrainingScreen : IScreen
     readonly MenuState _state;
     readonly List<Question> _questions;
     readonly FretboardView _board = new(new Rectangle(40, 230, 1200, 300));
-    readonly AnswerButtons _buttons = new(Pentatonic.Degrees(ScaleQuality.Minor).Where(d => d != "1"));
     int _index;
     int _correct;
     double _time;
@@ -38,14 +37,16 @@ public sealed class TrainingScreen : IScreen
         var random = new Random();
         _questions = TrainingPlan.Build(game.Progress, random).Select((item, i) =>
         {
-            var options = LevelFactory.World1[item.LevelIndex].ShapeNotes.Where(n => n.Degree == item.Degree).ToList();
+            var options = LevelFactory.Get(item.At).ShapeNotes.Where(n => n.Degree == item.Degree).ToList();
             return new Question(item, i % 2 == 0 ? Kind.NameIt : Kind.Find, options[random.Next(options.Count)]);
         }).ToList();
         Ask();
     }
 
     Question Current => _questions[_index];
-    Level CurrentLevel => LevelFactory.World1[Current.Item.LevelIndex];
+    Level CurrentLevel => LevelFactory.Get(Current.Item.At);
+    // Os botões mudam com a escala da pergunta (menor: b3 4 5 b7; maior: 2 3 5 6).
+    AnswerButtons _buttons = null!;
     IReadOnlyList<ScaleNote> Shape => CurrentLevel.ShapeNotes;
     bool Answered => _right is not null;
 
@@ -55,6 +56,7 @@ public sealed class TrainingScreen : IScreen
         _answer = null;
         _clicked = null;
         _questionTime = 0;
+        _buttons = new AnswerButtons(Pentatonic.Degrees(CurrentLevel.Quality).Where(d => d != "1"));
         PlayQuestion();
     }
 
@@ -125,12 +127,12 @@ public sealed class TrainingScreen : IScreen
         _right = right;
         _feedbackTime = 0;
         if (right) _correct++;
-        _game.Progress.RecordAnswer(Current.Item.LevelIndex, Current.Item.Degree, right);
+        _game.Progress.RecordAnswer(Current.Item.At, Current.Item.Degree, right);
     }
 
     ActivityResult BuildResult()
     {
-        int total = TrainingPlan.AllItems().Count();
+        int total = TrainingPlan.AllItems(_game.Progress).Count();
         return new ActivityResult("Treino do dia", "Repetição espaçada · todos os desenhos", _correct / (double)_questions.Count, new[]
         {
             ("Acertos", $"{_correct} de {_questions.Count}"),
@@ -142,7 +144,7 @@ public sealed class TrainingScreen : IScreen
     /// <summary>"Próxima revisão: ..." do item atual, depois de responder.</summary>
     string NextReviewText()
     {
-        if (_game.Progress.Review(Current.Item.LevelIndex, Current.Item.Degree) is not { } review) return "";
+        if (_game.Progress.Review(Current.Item.At, Current.Item.Degree) is not { } review) return "";
         int days = (review.Due - DateTime.Today).Days;
         string when = days <= 0 ? "ainda hoje" : days == 1 ? "amanhã" : $"em {days} dias";
         return $"Caixa {review.Box} de {Progress.MaxBox} · próxima revisão {when}";

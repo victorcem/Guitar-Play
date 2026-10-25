@@ -13,6 +13,9 @@ public static class Palette
     public static readonly Color Third = new(46, 204, 113);
     public static readonly Color Fifth = new(52, 152, 235);
     public static readonly Color Other = new(245, 176, 65);
+    public static readonly Color BlueNote = new(150, 110, 255);
+    /// <summary>Notas acrescentadas à pentatônica (escala CAGED, modos): lilás, como no livro.</summary>
+    public static readonly Color Added = new(205, 150, 235);
 
     public static readonly Color Gold = new(255, 200, 60);
     public static readonly Color Text = new(240, 240, 250);
@@ -24,11 +27,16 @@ public static class Palette
     public static readonly Color Neutral = new(125, 124, 150);
     public static readonly Color Miss = new(235, 80, 80);
 
+    /// <summary>Cor do grau no nível: as notas acrescentadas ficam em lilás.</summary>
+    public static Color ForDegree(string degree, IReadOnlyList<string>? extras) =>
+        extras is not null && extras.Contains(degree) ? Added : ForDegree(degree);
+
     public static Color ForDegree(string degree) => degree switch
     {
         "1" => Root,
         "b3" or "3" => Third,
         "5" => Fifth,
+        "#4" => BlueNote,
         _ => Other,
     };
 }

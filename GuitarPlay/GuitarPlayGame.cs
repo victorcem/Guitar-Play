@@ -55,6 +55,12 @@ public sealed class GuitarPlayGame : Game
     }
 
     public SpriteBatch Batch { get; private set; } = null!;
+    /// <summary>Tela virtual de 1280x720 onde tudo é desenhado antes de escalar para a janela.</summary>
+    public RenderTarget2D Canvas => _canvas;
+    public Assets Assets { get; private set; } = null!;
+    public Bloom Bloom { get; private set; } = null!;
+    /// <summary>Palco 2.5D da Pista (um só, reaproveitado a cada nível).</summary>
+    public Stage Stage { get; private set; } = null!;
     public Primitives Primitives { get; private set; } = null!;
     public Metronome Metronome { get; private set; } = null!;
     public NoteSynth Synth { get; private set; } = null!;
@@ -72,6 +78,9 @@ public sealed class GuitarPlayGame : Game
     public double Now => _clock.Elapsed.TotalSeconds;
 
     readonly Stopwatch _clock = Stopwatch.StartNew();
+    // Fundo animado das telas fora da pista: canhões de luz desenhados em código (a Pista tem o palco 2.5D).
+    readonly Backdrop _ambient = new(seed: 11);
+    double _elapsed;
     readonly List<(int Midi, double Age)> _audioNotes = new();
 
     /// <summary>Posição do mouse na tela virtual de 1280x720.</summary>
@@ -82,6 +91,7 @@ public sealed class GuitarPlayGame : Game
     FontSystem BoldFonts { get; set; } = null!;
     Texture2D CircleTexture { get; set; } = null!;
     Texture2D RingTexture { get; set; } = null!;
+    Texture2D Pixel { get; set; } = null!;
 
     protected override void LoadContent()
     {
@@ -89,6 +99,10 @@ public sealed class GuitarPlayGame : Game
         _canvas = new RenderTarget2D(GraphicsDevice, Width, Height, false, SurfaceFormat.Color, DepthFormat.None,
             preferredMultiSampleCount: 4, RenderTargetUsage.DiscardContents);
         Primitives = new Primitives(GraphicsDevice, Width, Height);
+        Assets = new Assets(GraphicsDevice);
+        Bloom = new Bloom(GraphicsDevice, Batch, Assets, Width, Height);
+        // O palco é montado uma vez só, no início: a Pista abre sem engasgo (e sem atrasar o relógio dela).
+        Stage = new Stage(GraphicsDevice, Assets);
         Metronome = new Metronome();
         Synth = new NoteSynth();
         if (Settings.InputDeviceId is not null) UseInput(Settings.InputDeviceId);
@@ -96,6 +110,8 @@ public sealed class GuitarPlayGame : Game
         BoldFonts = LoadFonts("segoeuib.ttf", "seguisym.ttf", "arialbd.ttf");
         CircleTexture = MakeDisc(innerRadius: 0);
         RingTexture = MakeDisc(innerRadius: CircleTextureSize / 2 - 10);
+        Pixel = new Texture2D(GraphicsDevice, 1, 1);
+        Pixel.SetData(new[] { Color.White });
         ShowScreen(new MenuScreen(this));
     }
 
@@ -144,6 +160,8 @@ public sealed class GuitarPlayGame : Game
         Clicked = IsActive && mouse.LeftButton == ButtonState.Pressed && _previousMouse.LeftButton == ButtonState.Released;
         _previousMouse = mouse;
         Synth.Update(gameTime.ElapsedGameTime.TotalSeconds);
+        _elapsed += gameTime.ElapsedGameTime.TotalSeconds;
+        _ambient.Update((float)gameTime.ElapsedGameTime.TotalSeconds, 0.25f);
         _audioNotes.Clear();
         if (Input is not null)
             while (Input.Events.TryDequeue(out var note)) _audioNotes.Add((note.Midi, Now - note.Timestamp));
@@ -185,10 +203,18 @@ public sealed class GuitarPlayGame : Game
         base.UnloadContent();
     }
 
-    public void DrawBackground() =>
-        Primitives.VerticalGradient(0, 0, Width, Height, Palette.BackgroundTop, Palette.BackgroundBottom);
+    /// <summary>Fundo animado (luzes e poeira de luz) num pulso tranquilo de 90 BPM.</summary>
+    public void DrawBackground()
+    {
+        float phase = (float)(_elapsed * 1.5 % 1);
+        _ambient.DrawBackdrop(Primitives, _elapsed, 0.6f * MathF.Exp(-phase * 5));
+    }
 
     public void Circle(Vector2 center, float radius, Color color) => DrawDisc(CircleTexture, center, radius, color);
+
+    /// <summary>Retângulo cheio desenhado pelo Batch (fica por cima de tudo que já foi desenhado).</summary>
+    public void FillRect(float x, float y, float width, float height, Color color) =>
+        Batch.Draw(Pixel, new Rectangle((int)x, (int)y, (int)width, (int)height), color);
 
     public void Ring(Vector2 center, float radius, Color color) => DrawDisc(RingTexture, center, radius, color);
 

@@ -34,8 +34,26 @@ public sealed class PlayScreen : IScreen
     readonly FretboardView _fretboard = new(new Rectangle(40, 548, 1200, 160));
     readonly float[] _laneFlash = new float[6];
     readonly List<Popup> _popups = new();
+    // Show: palco 2.5D com plateia ao fundo, chama e faíscas nos acertos, faixas de combo e raios no x4.
+    readonly Stage _stage;
+    readonly HitFlames _flames;
+    readonly Particles _sparks = new();
+    readonly List<Ripple> _ripples = new();
     double _time;
     int _lastClickBeat;
+    string? _banner;
+    Color _bannerColor;
+    float _bannerAge = float.MaxValue;
+    float _missFlash;
+
+    static readonly int[] ComboMilestones = { 10, 20, 30, 50, 75, 100, 150, 200 };
+
+    sealed class Ripple
+    {
+        public required Vector2 Position { get; init; }
+        public required Color Color { get; init; }
+        public float Age { get; set; }
+    }
 
     sealed class Popup
     {
@@ -45,12 +63,21 @@ public sealed class PlayScreen : IScreen
         public float Age { get; set; }
     }
 
+    /// <summary>Posição dentro da batida atual (0 a 1).</summary>
+    float BeatPhase => MathUtilF.Wrap((float)(_time / _secondsPerBeat), 1);
+
+    /// <summary>Brilho da batida: 1 no tempo e caindo até a próxima.</summary>
+    float Pulse => MathF.Exp(-BeatPhase * 5);
+
+    /// <summary>Multiplicador no máximo: a pista "pega fogo".</summary>
+    bool OnFire => _judge.Multiplier == 4;
+
     /// <summary>Nível de ajuda: 1 cor + grau, 2 só a cor, 3 só a tônica, 4 sem ajuda.</summary>
     int Assist => _state.Assist;
 
     Color HintColor(string degree) => Assist switch
     {
-        <= 2 => Palette.ForDegree(degree),
+        <= 2 => Palette.ForDegree(degree, _level.Extras),
         3 when degree == "1" => Palette.Root,
         _ => Palette.Neutral,
     };
@@ -68,6 +95,9 @@ public sealed class PlayScreen : IScreen
         _endTime = _noteTimes[^1] + 2 * _secondsPerBeat;
         _time = -CountInBeats * _secondsPerBeat - 0.4;
         _lastClickBeat = (int)Math.Floor(_time / _secondsPerBeat);
+        _stage = game.Stage;
+        _stage.Reset();
+        _flames = new HitFlames(game.Assets);
     }
 
     public void Update(GameTime gameTime)
@@ -99,7 +129,12 @@ public sealed class PlayScreen : IScreen
 
         double sweepAt = _game.Input is null ? _time : _time - latency - 0.05;
         foreach (var miss in _judge.SweepMisses(sweepAt))
+        {
             AddPopup("Errou", Palette.Miss, _level.Notes[miss.NoteIndex].String);
+            _missFlash = 1;
+        }
+
+        UpdateShow(dt, beat);
 
         for (int i = 0; i < _laneFlash.Length; i++) _laneFlash[i] = Math.Max(0, _laneFlash[i] - dt * 6);
         foreach (var popup in _popups) popup.Age += dt;
@@ -119,52 +154,152 @@ public sealed class PlayScreen : IScreen
         string text = judgement.Grade == HitGrade.Perfect ? "Perfeito!" : "Bom";
         // Sem o rótulo na nota, o grau aparece depois do acerto para reforçar a memória.
         if (Assist >= 2) text += $" · {note.Degree}";
+        if (note.Bend > 0) text += " · bend";
         AddPopup(text, judgement.Grade == HitGrade.Perfect ? Palette.Gold : Palette.Third, note.String);
+
+        var target = _highway.Project(Highway.LaneX(note.String), 0);
+        var color = Assist >= 3 ? Palette.Gold : Palette.ForDegree(note.Degree, _level.Extras);
+        bool perfect = judgement.Grade == HitGrade.Perfect;
+        _sparks.Burst(target, color, perfect ? 18 : 10, 560);
+        _ripples.Add(new Ripple { Position = target, Color = color });
+        _flames.Add(target, OnFire ? Stage.Electric : color, perfect ? 170 : 120);
+
+        int combo = _judge.Combo;
+        if (Array.IndexOf(ComboMilestones, combo) < 0) return;
+        bool fire = combo == 30;
+        _stage.Kick();
+        ShowBanner(fire ? "EM CHAMAS!  x4" : $"COMBO {combo}!", fire ? Stage.Electric : Palette.Gold);
     }
 
-    ActivityResult BuildResult()
+    void ShowBanner(string text, Color color)
     {
-        bool unlocksNext = Assist < MenuState.MaxAssist
-            && !MenuState.IsAssistUnlocked(_game.Progress, _state.LevelIndex, Assist + 1);
-        return new ActivityResult($"Pista · Ajuda {Assist}", $"{_level.Title} · {_level.KeyName} · {_bpm} BPM", _judge.Accuracy, new[]
+        _banner = text;
+        _bannerColor = color;
+        _bannerAge = 0;
+    }
+
+    void UpdateShow(float dt, int beat)
+    {
+        // A plateia se anima com o combo (cheia aos 30 acertos seguidos); o x4 liga o "star power".
+        _stage.StarPower = OnFire;
+        _stage.Update(dt, _time, beat, BeatPhase, 0.15f + _judge.Combo / 30f);
+        _sparks.Update(dt);
+        _flames.Update(dt);
+        foreach (var ripple in _ripples) ripple.Age += dt;
+        _ripples.RemoveAll(r => r.Age > 0.45f);
+        _bannerAge += dt;
+        _missFlash = MathF.Max(0, _missFlash - dt * 3);
+
+        if (!OnFire) return;
+        // Chamas elétricas subindo da linha de batida, como o "star power" do Guitar Hero.
+        var left = _highway.Project(-3, 0);
+        var right = _highway.Project(3, 0);
+        int count = (int)(dt * 140) + 1;
+        for (int i = 0; i < count; i++)
+        {
+            float x = _sparks.Next(left.X, right.X);
+            var velocity = new Vector2(_sparks.Next(-25, 25), _sparks.Next(-230, -110));
+            var flame = Color.Lerp(Stage.Electric, new Color(200, 240, 255), _sparks.Next(0, 1));
+            _sparks.Emit(new Vector2(x, left.Y + 4), velocity, flame, _sparks.Next(0.3f, 0.6f), _sparks.Next(5, 10), gravity: -60);
+        }
+    }
+
+    ActivityResult BuildResult() =>
+        // O que vai ser liberado é calculado antes de a tela de resultado gravar as estrelas.
+        new($"Pista · Ajuda {Assist}", $"{_level.Title} · {_level.Subtitle} · {_bpm} BPM", _judge.Accuracy, new[]
         {
             ("Pontos", _judge.Score.ToString("N0")),
             ("Maior combo", _judge.MaxCombo.ToString()),
             ("Perfeito / Bom / Errou", $"{_judge.Perfects} / {_judge.Goods} / {_judge.Misses}"),
-        }, _state.ProgressKey,
-            unlocksNext ? $"Ajuda {Assist + 1} liberada: {MenuState.AssistName(Assist + 1)}" : null);
-    }
+        }, _state.ProgressKey, Unlocks.NewlyUnlocked(_game.Progress, _state.At, Assist));
 
     void AddPopup(string text, Color color, int guitarString) =>
         _popups.Add(new Popup { Text = text, Color = color, String = guitarString });
 
     public void Draw(GameTime gameTime)
     {
-        _game.DrawBackground();
-        DrawHighwayBase(_game.Primitives);
-        _fretboard.DrawBase(_game.Primitives);
-        _game.Primitives.Flush();
+        var p = _game.Primitives;
+        var bloom = _game.Bloom;
+        _stage.PrepareFrame(_game.Batch);
+
+        // Palco, pista e efeitos passam pelo bloom; HUD e textos vêm depois, nítidos.
+        bloom.Strength = 0.75f + 0.7f * _stage.Intensity;
+        bloom.Begin();
+        _stage.DrawStage(_game);
+        _stage.DrawCrowd(_game);
+        DrawHighwayBase(p);
+        p.Flush();
 
         _game.Batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
         DrawTargets();
         DrawNotes();
+        _game.Batch.End();
+
+        // Brilhos somam luz (modo aditivo): chama no alvo, faíscas e ondas.
+        _game.Batch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.LinearClamp);
+        _flames.Draw(_game.Batch);
+        _sparks.Draw(_game);
+        foreach (var ripple in _ripples)
+        {
+            float k = ripple.Age / 0.45f;
+            _game.Ring(ripple.Position, GemRadius + 8 + 40 * k, ripple.Color * (0.8f * (1 - k)));
+        }
+        _game.Batch.End();
+        bloom.End(_game.Canvas);
+
+        // Painel do HUD quase opaco: a treliça e a plateia não podem cruzar os números e a legenda.
+        p.Rect(770, 18, 480, 486, new Color(8, 8, 18) * 0.86f);
+        p.Rect(770, 18, 480, 3, Palette.Gold * 0.8f);
+        _fretboard.DrawBase(p);
+        p.Flush();
+
+        _game.Batch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
         DrawPopups();
         DrawHud();
         DrawCountIn();
         DrawFretboard();
+        DrawBanner();
+        DrawMissFlash();
         _game.Batch.End();
+    }
+
+    void DrawBanner()
+    {
+        if (_banner is null || _bannerAge > 1.6f) return;
+        // Entra grande e "assenta" em 0,2 s; some depois de 1,2 s.
+        float pop = 1 + 0.6f * MathF.Max(0, 1 - _bannerAge * 5);
+        float alpha = _bannerAge < 1.2f ? 1 : MathF.Max(0, 1 - (_bannerAge - 1.2f) * 2.5f);
+        _game.Text(_banner, new Vector2(_highway.CenterX, 150), 54 * pop, _bannerColor * alpha,
+            bold: true, align: Align.Center, middle: true, shadow: true);
+    }
+
+    void DrawMissFlash()
+    {
+        if (_missFlash <= 0) return;
+        var red = Palette.Miss * (0.35f * _missFlash);
+        const float band = 26;
+        _game.FillRect(0, 0, GuitarPlayGame.Width, band, red);
+        _game.FillRect(0, GuitarPlayGame.Height - band, GuitarPlayGame.Width, band, red);
+        _game.FillRect(0, band, band, GuitarPlayGame.Height - 2 * band, red);
+        _game.FillRect(GuitarPlayGame.Width - band, band, band, GuitarPlayGame.Height - 2 * band, red);
     }
 
     void DrawHighwayBase(Primitives p)
     {
         var h = _highway;
-        var near = new Color(36, 38, 64);
-        var far = new Color(12, 12, 26);
+        float pulse = Pulse;
+        var near = OnFire ? new Color(22, 42, 86) : new Color(36, 38, 64);
+        // O fundo da pista se dissolve no palco.
+        var far = new Color(12, 12, 26) * 0.3f;
         p.Quad(h.Project(-3, NearT), h.Project(3, NearT), h.Project(3, 1), h.Project(-3, 1), near, near, far, far);
 
+        // Trilhos laterais pulsam na batida; no x4 viram eletricidade.
+        float flicker = 0.5f + 0.5f * MathF.Sin((float)_time * 25);
+        var rail = OnFire ? Color.Lerp(Stage.Electric, Color.White, flicker) : Palette.Gold * (0.5f + 0.4f * pulse);
+        float railWidth = 0.06f + 0.04f * pulse;
         foreach (float side in new[] { -3f, 3f })
-            p.Quad(h.Project(side - 0.06f, NearT), h.Project(side + 0.06f, NearT),
-                h.Project(side + 0.06f, 1), h.Project(side - 0.06f, 1), Palette.Gold * 0.6f);
+            p.Quad(h.Project(side - railWidth, NearT), h.Project(side + railWidth, NearT),
+                h.Project(side + railWidth, 1), h.Project(side - railWidth, 1), rail, rail, rail * 0.3f, rail * 0.3f);
 
         int firstBeat = (int)Math.Ceiling((_time + NearT * _lookAhead) / _secondsPerBeat);
         int lastBeat = (int)Math.Floor((_time + _lookAhead) / _secondsPerBeat);
@@ -174,7 +309,7 @@ public sealed class PlayScreen : IScreen
             bool measure = MathUtil.Mod(b, 4) == 0;
             float half = measure ? 0.007f : 0.003f;
             p.Quad(h.Project(-3, t - half), h.Project(3, t - half), h.Project(3, t + half), h.Project(-3, t + half),
-                Color.White * (measure ? 0.35f : 0.12f));
+                Color.White * ((measure ? 0.35f : 0.12f) * (1 + pulse)));
         }
 
         for (int s = 1; s <= 6; s++)
@@ -227,8 +362,23 @@ public sealed class PlayScreen : IScreen
                 bold: true, align: Align.Center, middle: true, shadow: true);
             if (Assist == 1 && scale > 0.5f)
                 _game.Text(note.Degree, pos + new Vector2(radius + 4, -radius), 15 * scale, color * alpha, bold: true);
+            if (note.Bend > 0)
+            {
+                // Bend: anel dourado e a amplitude acima da nota ("↑ 1 tom").
+                _game.Ring(pos, radius * 1.25f, Palette.Gold * alpha);
+                _game.Text($"↑ {BendLabel(note.Bend)}", pos - new Vector2(0, radius * 1.3f + 18 * scale), MathF.Max(11, 18 * scale),
+                    Palette.Gold * alpha, bold: true, align: Align.Center, shadow: true);
+            }
         }
     }
+
+    static string BendLabel(int semitones) => semitones switch
+    {
+        1 => "½ tom",
+        2 => "1 tom",
+        3 => "1½ tom",
+        _ => $"{semitones / 2.0:0.#} tons",
+    };
 
     void DrawFretboard()
     {
@@ -272,14 +422,28 @@ public sealed class PlayScreen : IScreen
         float progress = (float)Math.Clamp(_time / _endTime, 0, 1);
         DrawBar(x, 300, 440, progress);
 
-        string[] labels = { "Tônica (1)", "Terça (b3)", "Quinta (5)", "Outras (4, b7)" };
-        Color[] colors = { Palette.Root, Palette.Third, Palette.Fifth, Palette.Other };
+        // Legenda montada com os graus que aparecem no nível (menor, maior ou os dois).
+        var degrees = _level.Notes.Select(n => n.Degree).Distinct().ToList();
+        var thirds = degrees.Where(d => d is "b3" or "3");
+        var extras = degrees.Where(d => _level.Extras?.Contains(d) == true).ToList();
+        var others = degrees.Where(d => d is not ("1" or "b3" or "3" or "5" or "#4") && !extras.Contains(d)).OrderBy(d => d.TrimStart('b', '#'));
+        var legend = new List<(string Label, Color Color)>
+        {
+            ("Tônica (1)", Palette.Root),
+            ($"Terça ({string.Join(" / ", thirds)})", Palette.Third),
+            ("Quinta (5)", Palette.Fifth),
+        };
+        if (degrees.Contains("#4")) legend.Add(("Blue note (#4)", Palette.BlueNote));
+        if (extras.Count > 0) legend.Add(($"Notas novas ({string.Join(", ", extras)})", Palette.Added));
+        legend.Add(($"Outras ({string.Join(", ", others)})", Palette.Other));
+        string[] labels = legend.Select(l => l.Label).ToArray();
+        Color[] colors = legend.Select(l => l.Color).ToArray();
         int legendLines = Assist <= 2 ? labels.Length : Assist == 3 ? 1 : 0;
         if (Assist >= 3)
-            _game.Text("O grau aparece só depois do acerto.", new Vector2(x, 340 + legendLines * 30), 16, Palette.TextFaint);
+            _game.Text("O grau aparece só depois do acerto.", new Vector2(x, 340 + legendLines * 26), 16, Palette.TextFaint);
         for (int i = 0; i < legendLines; i++)
         {
-            float y = 340 + i * 30;
+            float y = 340 + i * 26;
             _game.Circle(new Vector2(x + 9, y + 11), 8, colors[i]);
             _game.Text(labels[i], new Vector2(x + 26, y), 17, Palette.TextDim);
         }
