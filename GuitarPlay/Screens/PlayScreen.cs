@@ -22,8 +22,7 @@ public sealed class PlayScreen : IScreen
     static readonly string[] RowKeyNames = { "H", "G", "F", "D", "S", "A" };
 
     readonly GuitarPlayGame _game;
-    readonly int _levelIndex;
-    readonly int _bpmIndex;
+    readonly MenuState _state;
     readonly Level _level;
     readonly int _bpm;
     readonly double _secondsPerBeat;
@@ -46,13 +45,22 @@ public sealed class PlayScreen : IScreen
         public float Age { get; set; }
     }
 
-    public PlayScreen(GuitarPlayGame game, int levelIndex, int bpmIndex)
+    /// <summary>Nível de ajuda: 1 cor + grau, 2 só a cor, 3 só a tônica, 4 sem ajuda.</summary>
+    int Assist => _state.Assist;
+
+    Color HintColor(string degree) => Assist switch
+    {
+        <= 2 => Palette.ForDegree(degree),
+        3 when degree == "1" => Palette.Root,
+        _ => Palette.Neutral,
+    };
+
+    public PlayScreen(GuitarPlayGame game, MenuState state)
     {
         _game = game;
-        _levelIndex = levelIndex;
-        _bpmIndex = bpmIndex;
-        _level = LevelFactory.World1[levelIndex];
-        _bpm = MenuScreen.BpmOptions[bpmIndex];
+        _state = state;
+        _level = state.Level;
+        _bpm = state.Bpm;
         _secondsPerBeat = 60.0 / _bpm;
         _lookAhead = LookAheadBeats * _secondsPerBeat;
         _noteTimes = _level.Notes.Select(n => n.Beat * _secondsPerBeat).ToArray();
@@ -66,7 +74,7 @@ public sealed class PlayScreen : IScreen
     {
         if (_game.Pressed(Keys.Escape))
         {
-            _game.ShowScreen(new MenuScreen(_game, _levelIndex, _bpmIndex));
+            _game.ShowScreen(new MenuScreen(_game, _state));
             return;
         }
 
@@ -91,7 +99,7 @@ public sealed class PlayScreen : IScreen
         foreach (var popup in _popups) popup.Age += dt;
         _popups.RemoveAll(popup => popup.Age > 0.8f);
 
-        if (_time >= _endTime) _game.ShowScreen(new ResultScreen(_game, _judge, _levelIndex, _bpmIndex));
+        if (_time >= _endTime) _game.ShowScreen(new ResultScreen(_game, BuildResult(), _state));
     }
 
     void OnPlayed(int guitarString, PlayedNote played)
@@ -99,8 +107,23 @@ public sealed class PlayScreen : IScreen
         _laneFlash[guitarString - 1] = 1;
         var judgement = _judge.Hit(played, _time);
         if (judgement is null) return;
-        if (judgement.Grade == HitGrade.Perfect) AddPopup("Perfeito!", Palette.Gold, guitarString);
-        else AddPopup("Bom", Palette.Third, guitarString);
+        string text = judgement.Grade == HitGrade.Perfect ? "Perfeito!" : "Bom";
+        // Sem o rótulo na nota, o grau aparece depois do acerto para reforçar a memória.
+        if (Assist >= 2) text += $" · {_level.Notes[judgement.NoteIndex].Degree}";
+        AddPopup(text, judgement.Grade == HitGrade.Perfect ? Palette.Gold : Palette.Third, guitarString);
+    }
+
+    ActivityResult BuildResult()
+    {
+        bool unlocksNext = Assist < MenuState.MaxAssist
+            && !MenuState.IsAssistUnlocked(_game.Progress, _state.LevelIndex, Assist + 1);
+        return new ActivityResult($"Pista · Ajuda {Assist}", $"{_level.Title} · {_level.KeyName} · {_bpm} BPM", _judge.Accuracy, new[]
+        {
+            ("Pontos", _judge.Score.ToString("N0")),
+            ("Maior combo", _judge.MaxCombo.ToString()),
+            ("Perfeito / Bom / Errou", $"{_judge.Perfects} / {_judge.Goods} / {_judge.Misses}"),
+        }, _state.ProgressKey,
+            unlocksNext ? $"Ajuda {Assist + 1} liberada: {MenuState.AssistName(Assist + 1)}" : null);
     }
 
     void AddPopup(string text, Color color, int guitarString) =>
@@ -119,9 +142,7 @@ public sealed class PlayScreen : IScreen
         DrawPopups();
         DrawHud();
         DrawCountIn();
-        int next = _judge.NextPending;
-        (int, int)? highlight = next >= 0 ? (_level.Notes[next].String, _level.Notes[next].Fret) : null;
-        _fretboard.DrawSprites(_game, _level.ShapeNotes, highlight, _time);
+        DrawFretboard();
         _game.Batch.End();
     }
 
@@ -188,16 +209,28 @@ public sealed class PlayScreen : IScreen
             float radius = GemRadius * scale;
             var pos = _highway.Project(Highway.LaneX(note.String), t);
             float alpha = t > 0.85f ? (1.02f - t) / 0.17f : 1f;
-            var color = grade == HitGrade.Miss ? Palette.Missed : Palette.ForDegree(note.Degree);
+            var color = grade == HitGrade.Miss ? Palette.Missed : HintColor(note.Degree);
 
             _game.Circle(pos + new Vector2(0, radius * 0.15f), radius * 1.1f, Color.Black * (0.6f * alpha));
             _game.Circle(pos, radius, color * alpha);
             _game.Circle(pos - new Vector2(radius * 0.25f, radius * 0.3f), radius * 0.35f, Color.White * (0.25f * alpha));
             _game.Text(note.Fret.ToString(), pos, MathF.Max(10, 28 * scale), Color.White * alpha,
                 bold: true, align: Align.Center, middle: true, shadow: true);
-            if (scale > 0.5f)
+            if (Assist == 1 && scale > 0.5f)
                 _game.Text(note.Degree, pos + new Vector2(radius + 4, -radius), 15 * scale, color * alpha, bold: true);
         }
+    }
+
+    void DrawFretboard()
+    {
+        _fretboard.DrawInlays(_game);
+        foreach (var note in _level.ShapeNotes)
+        {
+            string? label = Assist == 1 || (Assist == 3 && note.Degree == "1") ? note.Degree : null;
+            _fretboard.DrawMark(_game, new FretMark(note.String, note.Fret, HintColor(note.Degree), label));
+        }
+        int next = _judge.NextPending;
+        if (next >= 0) _fretboard.DrawPulse(_game, _level.Notes[next].String, _level.Notes[next].Fret, _time);
     }
 
     void DrawPopups()
@@ -215,6 +248,7 @@ public sealed class PlayScreen : IScreen
         const float x = 790;
         _game.Text(_level.Title, new Vector2(x, 30), 40, Palette.Text, bold: true);
         _game.Text($"{_level.Subtitle} · {_bpm} BPM", new Vector2(x, 82), 18, Palette.TextDim);
+        _game.Text($"Ajuda {Assist}/{MenuState.MaxAssist} · {MenuState.AssistName(Assist)}", new Vector2(x, 104), 16, Palette.Gold, bold: true);
 
         _game.Text("PONTOS", new Vector2(x, 130), 14, Palette.TextFaint, bold: true);
         _game.Text(_judge.Score.ToString("N0"), new Vector2(x, 148), 44, Palette.Text, bold: true);
@@ -231,7 +265,10 @@ public sealed class PlayScreen : IScreen
 
         string[] labels = { "Tônica (1)", "Terça (b3)", "Quinta (5)", "Outras (4, b7)" };
         Color[] colors = { Palette.Root, Palette.Third, Palette.Fifth, Palette.Other };
-        for (int i = 0; i < labels.Length; i++)
+        int legendLines = Assist <= 2 ? labels.Length : Assist == 3 ? 1 : 0;
+        if (Assist >= 3)
+            _game.Text("O grau aparece só depois do acerto.", new Vector2(x, 340 + legendLines * 30), 16, Palette.TextFaint);
+        for (int i = 0; i < legendLines; i++)
         {
             float y = 340 + i * 30;
             _game.Circle(new Vector2(x + 9, y + 11), 8, colors[i]);

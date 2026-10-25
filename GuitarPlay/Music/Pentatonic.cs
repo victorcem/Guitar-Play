@@ -31,6 +31,23 @@ public static class Pentatonic
     static readonly Dictionary<int, string> MinorDegrees = new() { [0] = "1", [3] = "b3", [5] = "4", [7] = "5", [10] = "b7" };
     static readonly Dictionary<int, string> MajorDegrees = new() { [0] = "1", [2] = "2", [4] = "3", [7] = "5", [9] = "6" };
 
+    /// <summary>Os graus da escala, da tônica para cima.</summary>
+    public static IReadOnlyList<string> Degrees(ScaleQuality quality) =>
+        quality == ScaleQuality.Minor ? new[] { "1", "b3", "4", "5", "b7" } : new[] { "1", "2", "3", "5", "6" };
+
+    public static string DegreeName(string degree) => degree switch
+    {
+        "1" => "tônica",
+        "2" => "segunda maior",
+        "b3" => "terça menor",
+        "3" => "terça maior",
+        "4" => "quarta justa",
+        "5" => "quinta justa",
+        "6" => "sexta maior",
+        "b7" => "sétima menor",
+        _ => degree,
+    };
+
     public static List<ScaleNote> Shape(int tonicPc, ScaleQuality quality, int shape)
     {
         int minorRootPc = quality == ScaleQuality.Minor ? tonicPc : MathUtil.Mod(tonicPc + 9, 12);

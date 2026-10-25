@@ -46,7 +46,7 @@ public sealed class Judge
     public int Multiplier => 1 + Math.Min(Combo / 10, 3);
     public double Accuracy => Total == 0 ? 0 : Points / Total;
     public double RunningAccuracy => Judged == 0 ? 1 : Points / Judged;
-    public int Stars => Accuracy >= 0.95 ? 3 : Accuracy >= 0.80 ? 2 : Accuracy >= 0.60 ? 1 : 0;
+    public int Stars => StarRating.For(Accuracy);
 
     /// <summary>Índice da próxima nota ainda não avaliada, ou -1 se acabou.</summary>
     public int NextPending => _firstPending < Total ? _firstPending : -1;

@@ -31,6 +31,15 @@ public sealed class Primitives
     public void Rect(float x, float y, float width, float height, Color color) =>
         Quad(new(x, y), new(x + width, y), new(x + width, y + height), new(x, y + height), color);
 
+    public void Line(Vector2 from, Vector2 to, float thickness, Color color)
+    {
+        var direction = to - from;
+        if (direction.LengthSquared() < 0.01f) return;
+        direction.Normalize();
+        var normal = new Vector2(-direction.Y, direction.X) * (thickness / 2);
+        Quad(from + normal, to + normal, to - normal, from - normal, color);
+    }
+
     public void VerticalGradient(float x, float y, float width, float height, Color top, Color bottom) =>
         Quad(new(x, y), new(x + width, y), new(x + width, y + height), new(x, y + height), top, top, bottom, bottom);
 

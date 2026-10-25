@@ -20,6 +20,8 @@ public static class Palette
     public static readonly Color TextFaint = new(110, 108, 140);
     public static readonly Color GuitarString = new(200, 200, 215);
     public static readonly Color Missed = new(90, 90, 100);
+    /// <summary>Nota sem pista de grau (níveis de ajuda mais altos).</summary>
+    public static readonly Color Neutral = new(125, 124, 150);
     public static readonly Color Miss = new(235, 80, 80);
 
     public static Color ForDegree(string degree) => degree switch
