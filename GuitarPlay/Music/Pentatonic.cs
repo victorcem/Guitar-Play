@@ -28,8 +28,8 @@ public static class Pentatonic
 {
     static readonly int[] MinorIntervals = { 0, 3, 5, 7, 10 };
 
-    static readonly Dictionary<int, string> MinorDegrees = new() { [0] = "1", [3] = "b3", [5] = "4", [7] = "5", [10] = "b7" };
-    static readonly Dictionary<int, string> MajorDegrees = new() { [0] = "1", [2] = "2", [4] = "3", [7] = "5", [9] = "6" };
+    // Nome de cada intervalo a partir da tônica (vale para menor, maior e notas acrescentadas).
+    static readonly string[] ChromaticDegrees = { "1", "b2", "2", "b3", "3", "4", "#4", "5", "b6", "6", "b7", "7" };
 
     /// <summary>Os graus da escala, da tônica para cima.</summary>
     public static IReadOnlyList<string> Degrees(ScaleQuality quality) =>
@@ -45,6 +45,7 @@ public static class Pentatonic
         "5" => "quinta justa",
         "6" => "sexta maior",
         "b7" => "sétima menor",
+        "#4" => "quarta aumentada (blue note)",
         _ => degree,
     };
 
@@ -86,7 +87,7 @@ public static class Pentatonic
         for (int i = 0; i < 12; i++)
         {
             int guitarString = 6 - i / 2;
-            notes.Add(new ScaleNote(guitarString, pitch - Tuning.OpenPitch(guitarString), pitch, DegreeOf(pitch, tonicPc, quality)));
+            notes.Add(new ScaleNote(guitarString, pitch - Tuning.OpenPitch(guitarString), pitch, DegreeOf(pitch, tonicPc)));
             pitch = NextInScale(pitch, minorRootPc);
         }
         return notes;
@@ -99,9 +100,21 @@ public static class Pentatonic
         return pitch;
     }
 
-    static string DegreeOf(int pitch, int tonicPc, ScaleQuality quality)
+    public static string DegreeOf(int pitch, int tonicPc) => ChromaticDegrees[MathUtil.Mod(pitch - tonicPc, 12)];
+
+    /// <summary>A próxima nota da pentatônica acima de uma altura (destino de um bend).</summary>
+    public static int NextScalePitch(int pitch, int tonicPc, ScaleQuality quality) =>
+        NextInScale(pitch, quality == ScaleQuality.Minor ? tonicPc : MathUtil.Mod(tonicPc + 9, 12));
+
+    /// <summary>
+    /// Acrescenta uma nota ao lado de cada ocorrência de um grau, na mesma corda
+    /// (ex.: terça maior um semitom acima da b3; blue note um semitom acima da 4).
+    /// </summary>
+    public static List<ScaleNote> AddNextTo(IEnumerable<ScaleNote> shape, int tonicPc, string anchorDegree, int semitones)
     {
-        int interval = MathUtil.Mod(pitch - tonicPc, 12);
-        return (quality == ScaleQuality.Minor ? MinorDegrees : MajorDegrees)[interval];
+        var notes = shape.ToList();
+        var added = notes.Where(n => n.Degree == anchorDegree)
+            .Select(n => new ScaleNote(n.String, n.Fret + semitones, n.Midi + semitones, DegreeOf(n.Midi + semitones, tonicPc)));
+        return notes.Concat(added).OrderBy(n => n.Midi).ThenByDescending(n => n.String).ToList();
     }
 }

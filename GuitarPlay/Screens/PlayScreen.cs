@@ -119,6 +119,7 @@ public sealed class PlayScreen : IScreen
         string text = judgement.Grade == HitGrade.Perfect ? "Perfeito!" : "Bom";
         // Sem o rótulo na nota, o grau aparece depois do acerto para reforçar a memória.
         if (Assist >= 2) text += $" · {note.Degree}";
+        if (note.Bend > 0) text += " · bend";
         AddPopup(text, judgement.Grade == HitGrade.Perfect ? Palette.Gold : Palette.Third, note.String);
     }
 
@@ -223,8 +224,23 @@ public sealed class PlayScreen : IScreen
                 bold: true, align: Align.Center, middle: true, shadow: true);
             if (Assist == 1 && scale > 0.5f)
                 _game.Text(note.Degree, pos + new Vector2(radius + 4, -radius), 15 * scale, color * alpha, bold: true);
+            if (note.Bend > 0)
+            {
+                // Bend: anel dourado e a amplitude acima da nota ("↑ 1 tom").
+                _game.Ring(pos, radius * 1.25f, Palette.Gold * alpha);
+                _game.Text($"↑ {BendLabel(note.Bend)}", pos - new Vector2(0, radius * 1.3f + 18 * scale), MathF.Max(11, 18 * scale),
+                    Palette.Gold * alpha, bold: true, align: Align.Center, shadow: true);
+            }
         }
     }
+
+    static string BendLabel(int semitones) => semitones switch
+    {
+        1 => "½ tom",
+        2 => "1 tom",
+        3 => "1½ tom",
+        _ => $"{semitones / 2.0:0.#} tons",
+    };
 
     void DrawFretboard()
     {
@@ -271,15 +287,23 @@ public sealed class PlayScreen : IScreen
         // Legenda montada com os graus que aparecem no nível (menor, maior ou os dois).
         var degrees = _level.Notes.Select(n => n.Degree).Distinct().ToList();
         var thirds = degrees.Where(d => d is "b3" or "3");
-        var others = degrees.Where(d => d is not ("1" or "b3" or "3" or "5")).OrderBy(d => d.TrimStart('b'));
-        string[] labels = { "Tônica (1)", $"Terça ({string.Join(" / ", thirds)})", "Quinta (5)", $"Outras ({string.Join(", ", others)})" };
-        Color[] colors = { Palette.Root, Palette.Third, Palette.Fifth, Palette.Other };
+        var others = degrees.Where(d => d is not ("1" or "b3" or "3" or "5" or "#4")).OrderBy(d => d.TrimStart('b'));
+        var legend = new List<(string Label, Color Color)>
+        {
+            ("Tônica (1)", Palette.Root),
+            ($"Terça ({string.Join(" / ", thirds)})", Palette.Third),
+            ("Quinta (5)", Palette.Fifth),
+        };
+        if (degrees.Contains("#4")) legend.Add(("Blue note (#4)", Palette.BlueNote));
+        legend.Add(($"Outras ({string.Join(", ", others)})", Palette.Other));
+        string[] labels = legend.Select(l => l.Label).ToArray();
+        Color[] colors = legend.Select(l => l.Color).ToArray();
         int legendLines = Assist <= 2 ? labels.Length : Assist == 3 ? 1 : 0;
         if (Assist >= 3)
-            _game.Text("O grau aparece só depois do acerto.", new Vector2(x, 340 + legendLines * 30), 16, Palette.TextFaint);
+            _game.Text("O grau aparece só depois do acerto.", new Vector2(x, 340 + legendLines * 26), 16, Palette.TextFaint);
         for (int i = 0; i < legendLines; i++)
         {
-            float y = 340 + i * 30;
+            float y = 340 + i * 26;
             _game.Circle(new Vector2(x + 9, y + 11), 8, colors[i]);
             _game.Text(labels[i], new Vector2(x + 26, y), 17, Palette.TextDim);
         }

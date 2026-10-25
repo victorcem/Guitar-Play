@@ -20,6 +20,12 @@ dotnet run --project GuitarPlay
 | 3 · Recortes de oitava | 3 | Tônica a tônica, terça a terça e quinta a quinta, em menor e maior, em todos os desenhos |
 | 4 · Transições entre desenhos | 4 | Cada par de desenhos vizinhos, trocando de desenho em cada uma das 6 cordas, grave → agudo e agudo → grave |
 | 5 · Pares de cordas | 5 | Cada par de cordas vizinhas atravessando os 5 desenhos na horizontal, em menor e maior |
+| 6 · Bends | 6 | Por desenho: bends isolados (nota-alvo presa, depois o bend até ela) e bends na escala (sobe o desenho e faz o bend na corda da vez) |
+| 7 · Pentatônicas mistas | 7 | Versão 1 (menor + 3) e versão 2 (maior + b3) em todos os desenhos, e as duas lado a lado |
+| 8 · Blue note | 8 | A #4 em cada desenho, nos recortes, nas transições e nos pares de cordas, e os bends de meio tom 4 → #4 e #4 → 5 |
+
+**Bends:** na pista a nota tem um anel dourado e a amplitude ("↑ 1 tom"). Com a guitarra, o tempo vale pela
+palhetada e o acerto é confirmado quando a altura chega na nota-alvo (até 0,6 s depois). No teclado, basta a corda.
 
 **Avanço:** cada nível abre com 2★ na Pista do nível anterior; um mundo abre quando o último nível do mundo anterior é passado.
 
@@ -71,6 +77,7 @@ O progresso (estrelas e revisões) fica em `%AppData%\GuitarPlay\progress.json`.
 2. **Ouvir a guitarra** (feito): entrada pela Pocket Master / interface / microfone (WASAPI), detecção de nota (YIN),
    afinador e calibração de latência (5 batidas, mediana). Vale na Pista, na Caça e no "ache a nota" do Treino.
 3. **Capítulos 2 a 5** (feito): mundos com desbloqueio por estrelas.
-4. **Próximos**: capítulos 6 a 11, bases de acompanhamento, músicas para tocar junto e animações de fundo.
+4. **Capítulos 6 a 8** (feito): bends, pentatônicas mistas e blue note.
+5. **Próximos**: capítulos 9 a 11, bases de acompanhamento, músicas para tocar junto e animações de fundo.
 
 O PDF do ebook não faz parte do repositório (direitos autorais).

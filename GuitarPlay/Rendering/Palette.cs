@@ -13,6 +13,7 @@ public static class Palette
     public static readonly Color Third = new(46, 204, 113);
     public static readonly Color Fifth = new(52, 152, 235);
     public static readonly Color Other = new(245, 176, 65);
+    public static readonly Color BlueNote = new(150, 110, 255);
 
     public static readonly Color Gold = new(255, 200, 60);
     public static readonly Color Text = new(240, 240, 250);
@@ -29,6 +30,7 @@ public static class Palette
         "1" => Root,
         "b3" or "3" => Third,
         "5" => Fifth,
+        "#4" => BlueNote,
         _ => Other,
     };
 }

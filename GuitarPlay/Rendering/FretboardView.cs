@@ -9,7 +9,8 @@ public readonly record struct FretMark(int String, int Fret, Color Color, string
 /// <summary>Braço da guitarra (como os diagramas do livro): corda 1 em cima, corda 6 embaixo.</summary>
 public sealed class FretboardView
 {
-    public const int Frets = 17;
+    // 18 casas: o bend do Desenho 5 pede a nota-alvo presa na casa 18.
+    public const int Frets = 18;
     static readonly int[] SingleInlays = { 3, 5, 7, 9, 15, 17 };
 
     readonly Rectangle _area;
